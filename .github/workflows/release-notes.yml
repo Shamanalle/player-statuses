@@ -1,0 +1,83 @@
+name: Sync release notes
+
+# Keeps the notes of published GitHub releases and Modrinth versions equal to their CHANGELOG.md section (English, then
+# Russian). Runs when CHANGELOG.md changes on main, or by hand for one tag or for every release.
+
+on:
+  push:
+    branches: [ "main" ]
+    paths: [ "CHANGELOG.md", ".github/scripts/release-notes.sh" ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to update, e.g. v1.1.0 (empty: every release)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Update release notes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [ -n "${TAG}" ]; then
+            tags="${TAG}"
+          else
+            tags="$(gh release list --limit 100 --json tagName --jq '.[].tagName')"
+          fi
+          for tag in ${tags}; do
+            if ! bash .github/scripts/release-notes.sh "${tag}" > notes.md; then
+              echo "Skipping ${tag}: no CHANGELOG.md section"
+              continue
+            fi
+            gh release edit "${tag}" --title "${tag}" --notes-file notes.md
+            echo "Updated ${tag}"
+          done
+
+      # The same notes on Modrinth, for every version there whose number starts with a CHANGELOG
+      # version (e.g. 1.2.4+mc1.21.x). Needs the MODRINTH_TOKEN secret with the "Write versions"
+      # scope; skipped when the project id or the token is missing.
+      - name: Update Modrinth versions
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          project=$(jq -r '.modrinth // ""' .github/publish.json)
+          if [ -z "${project}" ] || [ -z "${MODRINTH_TOKEN}" ]; then
+            echo "::warning::Modrinth skipped: no project id in .github/publish.json or no MODRINTH_TOKEN"
+            exit 0
+          fi
+          api=https://api.modrinth.com/v2
+          agent="Shamanalle/player-statuses (release notes sync)"
+          curl -fsS -A "${agent}" -H "Authorization: ${MODRINTH_TOKEN}" "${api}/project/${project}/version" > versions.json
+          failed=0
+          while IFS=$'\t' read -r id number; do
+            version="${number%%+*}"
+            if [ -n "${TAG}" ] && [ "v${version}" != "${TAG}" ]; then
+              continue
+            fi
+            if ! bash .github/scripts/release-notes.sh "${version}" > notes.md 2>/dev/null; then
+              echo "Skipping ${number}: no CHANGELOG.md section"
+              continue
+            fi
+            if jq -n --rawfile c notes.md '{changelog: $c}' \
+                | curl -fsS -X PATCH -A "${agent}" -H "Authorization: ${MODRINTH_TOKEN}" \
+                    -H "Content-Type: application/json" --data @- "${api}/version/${id}" > /dev/null; then
+              echo "Updated ${number}"
+            else
+              echo "::error::Could not update ${number} (does the token have the Write versions scope?)"
+              failed=1
+            fi
+          done < <(jq -r '.[] | [.id, .version_number] | @tsv' versions.json)
+          exit "${failed}"

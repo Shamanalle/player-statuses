@@ -1,0 +1,63 @@
+// A Forge build for one band of Minecraft versions with ForgeGradle 7 (forge-1.21.10 ... forge-26).
+// Since 1.20.6 Forge runs with Minecraft's own names, so the shared code is compiled as it is. Its jar is
+// an input of the universal Forge / NeoForge jar (see the root build.gradle).
+//
+// The module applies net.minecraftforge.gradle and sets, before applying this file:
+//   forgeTarget   the file's version range, "mc1.21.9-1.21.10"
+//   forgeVersion  the gradle.properties key of the Forge version it compiles against
+//   forgeShared   the shared folders it compiles, in order of precedence
+
+evaluationDependsOn(':common')
+
+version = "${project.mod_version}+${forgeTarget}"
+
+base {
+    archivesName = "player-statuses-forge"
+}
+
+// The build against the oldest Forge of the band (.github/workflows/build.yml) passes -PloaderOverride.<module>=<version>
+def forge = project.findProperty("loaderOverride.${project.name}") ?: project.property(forgeVersion)
+def minecraftVersion = forge.substring(0, forge.indexOf('-'))
+
+if (!minecraftVersion.startsWith('26')) {
+    minecraft {
+        mappings channel: 'official', version: minecraftVersion
+    }
+}
+
+repositories {
+    minecraft.mavenizer(it)
+    maven fg.forgeMaven
+    maven fg.minecraftLibsMaven
+    mavenCentral()
+}
+
+apply from: "${rootDir}/gradle/shared-sources.gradle"
+useShared(forgeShared)
+
+dependencies {
+    implementation minecraft.dependency("net.minecraftforge:forge:${forge}")
+    implementation project(':common')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+    options.encoding = 'UTF-8'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    disableAutoTargetJvm()
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("META-INF/mods.toml") {
+        expand "version": project.version
+    }
+}
+
+jar {
+    from project(':common').sourceSets.main.output
+}

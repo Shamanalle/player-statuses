@@ -1,0 +1,78 @@
+plugins {
+    id 'java'
+}
+
+// This build script reads common's source set, and ':bukkit' is configured before ':common-j8'
+evaluationDependsOn(':common-j8')
+
+// Bukkit, Spigot, Paper, Purpur and Folia 1.16.5+: the server side only (there is no client on Bukkit).
+// Compiled against the 1.16.5 API (Java 8 bytecode, see gradle/jabel.gradle) and uses only API that later
+// versions still have; the same channel and bytes as the mod, so players with the mod see each other here.
+version = project.mod_version
+
+base {
+    archivesName = "player-statuses-bukkit"
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = "papermc"
+        url = 'https://repo.papermc.io/repository/maven-public/'
+    }
+}
+
+dependencies {
+    implementation project(':common-j8')
+    compileOnly "com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT"
+}
+
+apply from: "${rootDir}/gradle/jabel.gradle"
+
+// Folia's scheduler API exists only in the 1.20.1+ Paper API, so FoliaScheduling is a source set of its own
+// compiled against that API (it is loaded only on Folia, which needs Java 17+ anyway) and goes into the same jar
+sourceSets {
+    folia {
+        compileClasspath += sourceSets.main.output + configurations.compileClasspath
+    }
+}
+configurations.foliaCompileClasspath {
+    attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 17)
+}
+dependencies {
+    foliaCompileOnly "io.papermc.paper:paper-api:${project.bukkit_api_version}"
+}
+tasks.named('compileFoliaJava') { dependsOn 'compileJava' }
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("plugin.yml") {
+        expand "version": project.version
+    }
+}
+
+// The plugin jar: the plugin, its Folia part and the common code with the language files (the replies come
+// from them; the icon is for the client only)
+tasks.named('jar') {
+    from(sourceSets.folia.output)
+    from(project(':common-j8').sourceSets.main.output) {
+        exclude 'assets/playerstatuses/icon.png'
+    }
+}
+
+// Guards the jar against losing the texts: without them every reply would be a bare key
+tasks.register('checkPluginJar') {
+    def jarFile = tasks.named('jar').flatMap { it.archiveFile }
+    inputs.file jarFile
+    doLast {
+        def names = new java.util.zip.ZipFile(jarFile.get().asFile).withCloseable { zip -> zip.entries().collect { it.name } }
+        for (String required : ['plugin.yml', 'assets/playerstatuses/lang/en_us.json', 'assets/playerstatuses/lang/ru_ru.json',
+                                'com/kasper/playerstatuses/ServerText.class', 'com/kasper/playerstatuses/bukkit/FoliaScheduling.class']) {
+            if (!names.contains(required)) {
+                throw new GradleException("The plugin jar lacks " + required)
+            }
+        }
+    }
+}
+tasks.named('build') { dependsOn 'checkPluginJar' }
+tasks.named('checkPluginJar') { dependsOn 'jar' }

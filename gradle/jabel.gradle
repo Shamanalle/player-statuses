@@ -1,0 +1,32 @@
+// Java 8 builds (Minecraft 1.16.5 runs on Java 8): the sources keep their Java 17 syntax (records marked
+// @com.github.bsideup.jabel.Desugar, var, switch expressions, pattern instanceof) and Jabel, a javac plugin,
+// compiles it to Java 8 bytecode against the Java 8 API (--release 8). Only a JDK 17 javac runs the plugin.
+configurations {
+    jabel
+}
+
+dependencies {
+    jabel 'com.github.bsideup.jabel:jabel-javac-plugin:1.0.0'
+    jabel 'net.bytebuddy:byte-buddy-agent:1.15.10'
+    jabel 'net.bytebuddy:byte-buddy:1.15.10'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 8
+    options.encoding = 'UTF-8'
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(17) }
+    options.fork = true
+    def jvm = ['-Djdk.attach.allowAttachSelf=true']
+    ['comp', 'parser', 'util', 'code', 'tree', 'main', 'file', 'api'].each {
+        jvm << "--add-exports=jdk.compiler/com.sun.tools.javac.${it}=ALL-UNNAMED".toString()
+        jvm << "--add-opens=jdk.compiler/com.sun.tools.javac.${it}=ALL-UNNAMED".toString()
+    }
+    options.forkOptions.jvmArgs = jvm
+    options.annotationProcessorPath = configurations.jabel
+    options.compilerArgs += ['-Xplugin:jabel']
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}

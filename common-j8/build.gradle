@@ -1,0 +1,29 @@
+plugins {
+    id 'java-library'
+}
+
+// The sources of ':common' compiled to Java 8 bytecode (see gradle/jabel.gradle). The universal jars
+// carry this build, so the common classes load on every Minecraft version, Java 8 ones included.
+base {
+    archivesName = "player-statuses-common-j8"
+}
+
+repositories {
+    mavenCentral()
+}
+
+apply from: "${rootDir}/gradle/jabel.gradle"
+
+sourceSets {
+    main {
+        java.srcDir "${rootDir}/common/src/main/java"
+        resources.srcDir "${rootDir}/common/src/main/resources"
+    }
+}
+
+processResources {
+    inputs.property "version", project.mod_version
+    filesMatching("playerstatuses-build.properties") {
+        expand "version": project.mod_version
+    }
+}

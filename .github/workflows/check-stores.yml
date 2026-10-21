@@ -1,0 +1,52 @@
+name: Check the stores
+
+# Checks that every file of a release is on Modrinth and CurseForge with all the Minecraft versions
+# and loaders the publish matrix gives it (.github/scripts/check-stores.py). Runs after "Publish to
+# Modrinth & CurseForge", or by hand for any tag.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      warn-only:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, e.g. v2.6.0 (empty: the latest release)'
+        type: string
+        default: ''
+  push:
+    paths:
+      - .github/scripts/check-stores.py
+      - .github/workflows/check-stores.yml
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check the stores
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+
+      - name: Compare the stores with the publish matrix
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          WARN_ONLY: ${{ inputs.warn-only && '--warn-only' || '' }}
+        run: |
+          tag="${TAG}"
+          if [ -z "${tag}" ]; then
+            tag=$(gh release view --repo "${GITHUB_REPOSITORY}" --json tagName --jq .tagName)
+          fi
+          # shellcheck disable=SC2086
+          python3 .github/scripts/check-stores.py "${tag}" ${WARN_ONLY}

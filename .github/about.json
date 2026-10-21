@@ -1,0 +1,17 @@
+{
+  "description": "See what other players are up to: typing, inventory or chest open, AFK with a timer, tabbed out. Minecraft 1.20.1 – 26.3 on Fabric, Forge, NeoForge, plus a Paper plugin. / Статусы игроков: печатает, в инвентаре, АФК.",
+  "topics": [
+    "minecraft",
+    "minecraft-mod",
+    "fabric-mod",
+    "forge-mod",
+    "neoforge",
+    "paper-plugin",
+    "spigot-plugin",
+    "folia",
+    "multiplayer",
+    "typing-indicator",
+    "afk",
+    "player-status"
+  ]
+}

@@ -1,0 +1,61 @@
+name: Repository about
+
+# Applies .github/about.json (description and topics) to the repository settings, so they are edited
+# with a commit. GITHUB_TOKEN cannot change repository settings, so applying needs the
+# REPO_ADMIN_TOKEN secret: a fine-grained token for this repository only, with the
+# "Administration: Read and write" permission. Pull requests only validate the file.
+
+on:
+  push:
+    branches: [ "main" ]
+    paths: [ ".github/about.json", ".github/workflows/repo-about.yml" ]
+  pull_request:
+    paths: [ ".github/about.json", ".github/workflows/repo-about.yml" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  about:
+    name: Validate and apply
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate .github/about.json
+        run: |
+          jq -e . .github/about.json > /dev/null
+          length=$(jq -r '.description | length' .github/about.json)
+          if [ "${length}" -gt 350 ]; then
+            echo "::error file=.github/about.json::The description is ${length} characters; GitHub allows 350"
+            exit 1
+          fi
+          count=$(jq '.topics | length' .github/about.json)
+          if [ "${count}" -gt 20 ]; then
+            echo "::error file=.github/about.json::${count} topics; GitHub allows 20"
+            exit 1
+          fi
+          bad=$(jq -r '.topics[] | select(test("^[a-z0-9][a-z0-9-]{0,49}$") | not)' .github/about.json)
+          if [ -n "${bad}" ]; then
+            echo "::error file=.github/about.json::Invalid topics (lowercase letters, digits and hyphens, up to 50 characters): ${bad}"
+            exit 1
+          fi
+          echo "Description (${length} characters) and ${count} topics are valid"
+
+      - name: Apply to the repository
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.REPO_ADMIN_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::REPO_ADMIN_TOKEN is not set, so the description and topics were not applied (see CONTRIBUTING.md)"
+            exit 0
+          fi
+          jq '{description: .description}' .github/about.json \
+            | gh api --method PATCH "repos/${GITHUB_REPOSITORY}" --input - > /dev/null
+          jq '{names: .topics}' .github/about.json \
+            | gh api --method PUT "repos/${GITHUB_REPOSITORY}/topics" --input - > /dev/null
+          echo "Applied the description and $(jq '.topics | length' .github/about.json) topics"

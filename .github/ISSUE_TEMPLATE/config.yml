@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: "📖 README — installation and settings"
+    url: https://github.com/Shamanalle/player-statuses#readme
+    about: "Versions, which file for which loader, commands, settings"
+  - name: "📖 README — установка и настройки"
+    url: https://github.com/Shamanalle/player-statuses/blob/main/README.ru.md
+    about: "Версии, какой файл для какого загрузчика, команды, настройки"

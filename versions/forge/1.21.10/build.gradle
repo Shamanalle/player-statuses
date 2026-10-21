@@ -1,0 +1,10 @@
+plugins {
+    id 'net.minecraftforge.gradle' version '[7.0.17,8)'
+    id 'java'
+}
+
+// Forge, Minecraft 1.21.9-1.21.10 (see gradle/forge-band.gradle)
+ext.forgeTarget = 'mc1.21.9-1.21.10'
+ext.forgeVersion = 'forge12110_version'
+ext.forgeShared = ['shared/forge-bus7', 'shared/mc-all']
+apply from: "${rootDir}/gradle/forge-band.gradle"
