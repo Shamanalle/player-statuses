@@ -1,0 +1,96 @@
+name: "🐞 Bug report / Ошибка"
+description: "Something is broken or the game crashes / Что-то работает не так или игра падает"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Exact versions and steps make it much faster to fix.
+        Спасибо за отчёт! Чем точнее версии и шаги, тем быстрее получится исправить.
+
+  - type: dropdown
+    id: side
+    attributes:
+      label: "Where is the mod installed? / Где установлен мод?"
+      options:
+        - "Client only / Только клиент"
+        - "Server only / Только сервер"
+        - "Client and server / Клиент и сервер"
+        - "Client, and the plugin on the server / Клиент и плагин на сервере"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: loader
+    attributes:
+      label: "Loader / Загрузчик"
+      options:
+        - Fabric
+        - Quilt
+        - Forge
+        - NeoForge
+        - Paper / Purpur / Folia / Spigot (server plugin / серверный плагин)
+    validations:
+      required: true
+
+  - type: input
+    id: mc_version
+    attributes:
+      label: "Minecraft version / Версия Minecraft"
+      placeholder: "1.21.11"
+    validations:
+      required: true
+
+  - type: input
+    id: mod_version
+    attributes:
+      label: "Mod version / Версия мода"
+      description: "The file name from your mods or plugins folder / Имя файла из папки mods или plugins"
+      placeholder: "player-statuses-fabric-0.1.0+mc1.21.9-26.x.jar"
+    validations:
+      required: true
+
+  - type: input
+    id: loader_version
+    attributes:
+      label: "Loader version / Версия загрузчика"
+      placeholder: "Fabric Loader 0.18.4 + Fabric API 0.141.6, NeoForge 21.1.264, Paper build 60…"
+
+  - type: textarea
+    id: other_mods
+    attributes:
+      label: "Mods that change players, name tags or shaders / Моды на игроков, ники или шейдеры"
+      description: "Iris, Oculus, Figura, Customizable Player Models, Nametag Tweaks, Simple Voice Chat…"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "What happened / Что случилось"
+      description: "What you expected and what actually happened; a screenshot helps / Что вы ожидали и что произошло; скриншот очень помогает"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Steps to reproduce / Как воспроизвести"
+      placeholder: |
+        1. Join a server with the mod with a friend / Зайти на сервер с модом вдвоём
+        2. The friend opens a chest / Друг открывает сундук
+        3. … / …
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: "Settings / Настройки"
+      description: "config/playerstatuses.properties (and config/playerstatuses-server.properties on the server) / config/playerstatuses.properties (и config/playerstatuses-server.properties на сервере)"
+      render: properties
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Log or crash report / Лог или краш-репорт"
+      description: "logs/latest.log or crash-reports/…; a mclo.gs link is fine / logs/latest.log или crash-reports/…; можно ссылкой на mclo.gs"
+      render: text

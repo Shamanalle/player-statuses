@@ -1,0 +1,48 @@
+// The sources of a Minecraft module: its own src/main/java first, then the shared folders it lists,
+// in order of precedence. A file in an earlier folder replaces the file with the same path in a later
+// one, so a band changes one class of the shared code by having its own copy at the same path.
+//
+//   useShared(['shared/neoforge', 'shared/mc-all'], ['com/kasper/playerstatuses/Some.java'])
+//
+// The second list leaves shared files out entirely (the band cannot compile them and does not need them).
+ext.useShared = { List<String> folders, List<String> excluded = [] ->
+    def ownRoot = file('src/main/java')
+    def roots = folders.collect { new File(rootDir, "${it}/src/main/java") }
+    roots.each {
+        if (!it.isDirectory()) {
+            throw new GradleException("${project.path}: shared folder ${it} does not exist")
+        }
+    }
+    sourceSets.main.java {
+        roots.each { srcDir it }
+        exclude { FileTreeElement e ->
+            if (e.directory) {
+                return false
+            }
+            def index = roots.findIndexOf { e.file.path.startsWith(it.path + File.separator) }
+            if (index < 0) {
+                return false
+            }
+            def path = e.relativePath.pathString
+            def before = [ownRoot] + roots.take(index)
+            excluded.contains(path) || before.any { new File(it, path).exists() }
+        }
+    }
+    // Shared resources (the band's fabric.mod.json template, say) the same way
+    def resourceRoots = folders.collect { new File(rootDir, "${it}/src/main/resources") }.findAll { it.isDirectory() }
+    sourceSets.main.resources {
+        resourceRoots.each { srcDir it }
+        exclude { FileTreeElement e ->
+            if (e.directory) {
+                return false
+            }
+            def index = resourceRoots.findIndexOf { e.file.path.startsWith(it.path + File.separator) }
+            if (index < 0) {
+                return false
+            }
+            def path = e.relativePath.pathString
+            def before = [file('src/main/resources')] + resourceRoots.take(index)
+            before.any { new File(it, path).exists() }
+        }
+    }
+}

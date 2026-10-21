@@ -1,0 +1,169 @@
+name: In-game tests
+
+# Starts real servers with the mod or the plugin (.github/scripts/server-smoke.sh): each must come up,
+# answer /playerstatuses with real text, write its settings file and log no exception from the mod.
+# Real Fabric clients open a world, run the commands and take screenshots. The release (release.yml)
+# runs this first and stops when it fails.
+#
+# A download that fails on the way (a timeout, a reset connection, HTTP 429 / 5xx; see
+# .github/scripts/net-failure.sh) is tried once more and leaves a warning on the run: the Gradle build
+# and the client before the game starts (net-retry.sh, the second time with Maven Central through
+# Google's mirror), the server's installer and first start (server-smoke.sh). A failing test, a
+# compile error and a missing file are not tried again.
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build the jars
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Check the network retry
+        run: bash .github/scripts/net-retry-selftest.sh
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Build
+        run: |
+          chmod +x gradlew
+          bash .github/scripts/net-retry.sh -- ./gradlew build -x test --no-daemon
+      - name: Upload jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingame-jars
+          path: build/libs/*.jar
+          if-no-files-found: error
+
+  server:
+    name: ${{ matrix.loader }} ${{ matrix.mc }}${{ matrix.label && format(' ({0})', matrix.label) || '' }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # One jar for every Fabric version, so each job also checks that it picks the right band
+          - { loader: fabric, mc: '1.21.9', jar: 'player-statuses-fabric-*+mc1.21.9-26.x.jar', java: '21' }
+          - { loader: fabric, mc: '1.21.10', jar: 'player-statuses-fabric-*+mc1.21.9-26.x.jar', java: '21' }
+          - { loader: fabric, mc: '1.21.11', jar: 'player-statuses-fabric-*+mc1.21.9-26.x.jar', java: '21' }
+          - { loader: fabric, mc: '26.1', jar: 'player-statuses-fabric-*+mc1.21.9-26.x.jar', java: '25' }
+          - { loader: fabric, mc: '26.3', jar: 'player-statuses-fabric-*+mc1.21.9-26.x.jar', java: '25' }
+          # One jar for every Forge and NeoForge version, the same way; the oldest loader of a band too
+          - { loader: forge, mc: '1.20', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '17', version: 'forge120_version_oldest', label: 'oldest' }
+          - { loader: forge, mc: '1.20.1', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '17', version: 'forge120_version' }
+          - { loader: forge, mc: '1.21.9', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'forge12110_version_oldest', label: 'oldest' }
+          - { loader: forge, mc: '1.21.10', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'forge12110_version' }
+          - { loader: forge, mc: '1.21.11', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'forge12111_version_oldest', label: 'oldest' }
+          - { loader: forge, mc: '1.21.11', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'forge12111_version' }
+          - { loader: forge, mc: '26.1', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '25', version: 'forge26_version_oldest', label: 'oldest' }
+          - { loader: forge, mc: '26.3', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '25', version: 'forge26_version' }
+          # NeoForge for 1.20.1 is a fork of Forge and loads the Forge build
+          - { loader: neoforge, mc: '1.20.1', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '17', version: 'nf1201_forge' }
+          - { loader: neoforge, mc: '1.21', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'nf121_neoforge_oldest', label: 'oldest' }
+          - { loader: neoforge, mc: '1.21.1', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'nf121_neoforge' }
+          - { loader: neoforge, mc: '1.21.9', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'nf12110_neoforge_oldest', label: 'oldest' }
+          - { loader: neoforge, mc: '1.21.10', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'nf12110_neoforge' }
+          - { loader: neoforge, mc: '1.21.11', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'nf12111_neoforge' }
+          - { loader: neoforge, mc: '26.1.2', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '25', version: 'nf26_neoforge_oldest', label: 'oldest' }
+          - { loader: neoforge, mc: '26.3', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '25', version: 'nf26_neoforge' }
+          # The plugin: Java 8 bytecode and the 1.16.5 API, so the oldest server runs it on Java 8
+          - { loader: paper, mc: '1.16.5', jar: 'player-statuses-bukkit-*.jar', java: '8' }
+          - { loader: paper, mc: '1.20.1', jar: 'player-statuses-bukkit-*.jar', java: '17' }
+          - { loader: paper, mc: '1.21.1', jar: 'player-statuses-bukkit-*.jar', java: '21' }
+          - { loader: paper, mc: '1.21.11', jar: 'player-statuses-bukkit-*.jar', java: '21' }
+          - { loader: paper, mc: 'latest', jar: 'player-statuses-bukkit-*.jar', java: '25' }
+          - { loader: folia, mc: 'latest', jar: 'player-statuses-bukkit-*.jar', java: '25' }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+      - name: Download jars
+        uses: actions/download-artifact@v4
+        with:
+          name: ingame-jars
+          path: jars
+      - name: Start the server and run the commands
+        run: |
+          jar=$(ls jars/${{ matrix.jar }} | head -1)
+          version=""
+          if [ -n "${{ matrix.version }}" ]; then
+            version=$(grep "^${{ matrix.version }}=" gradle.properties | cut -d= -f2)
+          fi
+          echo "Mod: ${jar} ${version}"
+          bash .github/scripts/server-smoke.sh "${{ matrix.loader }}" "${{ matrix.mc }}" "${jar}" "${version}"
+      - name: Upload the server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-log-${{ matrix.loader }}-${{ matrix.mc }}${{ matrix.label && format('-{0}', matrix.label) || '' }}
+          path: ${{ runner.temp }}/server-*/*.log
+          if-no-files-found: ignore
+
+  client:
+    name: Client ${{ matrix.mc }} (commands, screenshots)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { module: fabric-1.21.11, dir: versions/fabric/1.21.11, mc: '1.21.11' }
+          - { module: fabric-26, dir: versions/fabric/26, mc: '26.3' }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      # Gradle runs on 25; the 1.21.11 test client runs on 21 (see gradle/fabric-band.gradle)
+      - name: Set up JDK 21 and 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: |
+            21
+            25
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      # Software OpenGL and Vulkan (Mesa llvmpipe / lavapipe): 26.x draws through either, and the
+      # runner's X server alone offers neither a matching GLX visual nor a Vulkan surface
+      - name: Software graphics
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update -qq
+          sudo apt-get -o Acquire::Retries=3 install -y -qq mesa-vulkan-drivers libvulkan1 libgl1-mesa-dri libglx-mesa0 libegl1 mesa-utils > /dev/null
+      - name: Run the client test
+        # Shorter than the job, so the screenshots and the log are still uploaded when the client hangs
+        timeout-minutes: 20
+        run: |
+          chmod +x gradlew
+          xvfb-run -a -s "-screen 0 1280x960x24 +extension GLX +render" sh -c 'glxinfo -B | head -12 || true'
+          # Tried again only when it failed on a download before the game started
+          bash .github/scripts/net-retry.sh --started '^> Task :${{ matrix.module }}:runClientGameTest' -- \
+            xvfb-run -a -s "-screen 0 1280x960x24 +extension GLX +render" ./gradlew :${{ matrix.module }}:runClientGameTest \
+            --no-daemon --console=plain -Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64,JAVA_HOME_25_X64
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-${{ matrix.module }}
+          path: |
+            ${{ matrix.dir }}/build/run/clientGameTest/screenshots/
+            ${{ matrix.dir }}/build/run/clientGameTest/logs/latest.log
+          if-no-files-found: ignore

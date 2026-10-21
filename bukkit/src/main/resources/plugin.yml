@@ -1,0 +1,21 @@
+name: PlayerStatuses
+version: '${version}'
+main: com.kasper.playerstatuses.bukkit.PlayerStatusesBukkit
+api-version: '1.16'
+folia-supported: true
+author: Shamanalle
+website: https://github.com/Shamanalle/player-statuses
+description: >-
+  Player Statuses for Paper, Purpur, Folia and Spigot: players with the mod see each other typing,
+  in the inventory or AFK; the server adds what it can see for players without the mod.
+commands:
+  playerstatuses:
+    description: Player Statuses - version, players with the mod, settings
+    usage: /playerstatuses [status|reload|help]
+permissions:
+  playerstatuses.admin:
+    description: /playerstatuses reload
+    default: op
+  playerstatuses.afk:
+    description: /afk - mark yourself AFK until you move
+    default: true

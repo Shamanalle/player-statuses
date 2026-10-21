@@ -1,0 +1,131 @@
+name: Minecraft 26.x compatibility
+
+# Checks the 26.x jar on every 26.x release of Minecraft, not only the one it is built against:
+# the jar built for gradle.properties' mc26_minecraft links against that version and its latest
+#    Fabric API: every class, method, field, override and abstract method it uses resolves the same
+#    way (LinkCheck.java);
+# and, for information, whether the sources also compile against that version.
+# The Minecraft versions come from Mojang's version list, the Fabric API versions from Fabric's maven.
+
+on:
+  pull_request:
+    paths:
+      - 'versions/fabric/26/**'
+      - 'shared/fabric/**'
+      - 'shared/mc-all/**'
+      - 'shared/mc-1.21.11-up/**'
+      - 'common/src/main/**'
+      - 'gradle.properties'
+      - '.github/scripts/LinkCheck.java'
+      - '.github/scripts/linkcheck-selftest.sh'
+      - '.github/workflows/compat-26.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  versions:
+    name: List 26.x releases
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+    steps:
+      - name: Minecraft releases and their Fabric API
+        id: list
+        run: |
+          releases=$(curl -fsSL https://piston-meta.mojang.com/mc/game/version_manifest_v2.json \
+            | jq -r '.versions[] | select(.type == "release") | .id | select(test("^26\\."))' | sort -V)
+          meta=$(curl -fsSL https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/maven-metadata.xml)
+          entries=()
+          for mc in ${releases}; do
+            api=$(grep -oP "<version>\K[^<]*\+${mc//./\\.}(?=</version>)" <<< "${meta}" | sort -V | tail -1 || true)
+            if [ -z "${api}" ]; then
+              echo "::warning::No Fabric API for Minecraft ${mc}; skipped"
+              continue
+            fi
+            echo "Minecraft ${mc}: Fabric API ${api}"
+            entries+=("$(jq -cn --arg mc "${mc}" --arg api "${api}" '{mc: $mc, api: $api}')")
+          done
+          if [ "${#entries[@]}" -eq 0 ]; then
+            echo "::error::No 26.x release with a Fabric API found"
+            exit 1
+          fi
+          echo "matrix=$(printf '%s\n' "${entries[@]}" | jq -cs '{include: .}')" >> "$GITHUB_OUTPUT"
+
+  check:
+    name: Minecraft ${{ matrix.mc }}
+    needs: versions
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.versions.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: LinkCheck self-test
+        run: bash .github/scripts/linkcheck-selftest.sh
+
+      - name: Build the jar for the reference version
+        run: |
+          ./gradlew :fabric-26:assemble :fabric-26:writeCompileClasspath --no-daemon
+          version=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          cp "versions/fabric/26/build/libs/player-statuses-fabric-${version}+mc26.x.jar" "${RUNNER_TEMP}/mod.jar"
+          cp versions/fabric/26/build/compile-classpath.txt "${RUNNER_TEMP}/reference-classpath.txt"
+
+      - name: Classpath of Minecraft ${{ matrix.mc }}
+        run: |
+          ./gradlew :fabric-26:writeCompileClasspath --no-daemon \
+            -Pmc26_minecraft=${{ matrix.mc }} -Pmc26_fabric_api=${{ matrix.api }}
+          cp versions/fabric/26/build/compile-classpath.txt "${RUNNER_TEMP}/target-classpath.txt"
+
+      # For information only: what ships is the jar built for the reference version, and the two
+      # checks after this one decide whether it runs here. Compiling against older Fabric API
+      # builds can stop on classes of their injected interfaces (EntityLoadData on 26.1 - 26.1.1),
+      # which says nothing about the shipped jar.
+      - name: Compile the sources against Minecraft ${{ matrix.mc }} (information)
+        id: compile
+        continue-on-error: true
+        run: |
+          ./gradlew :fabric-26:compileJava --no-daemon \
+            -Pmc26_minecraft=${{ matrix.mc }} -Pmc26_fabric_api=${{ matrix.api }}
+
+      - name: Check the reference jar links against Minecraft ${{ matrix.mc }}
+        id: link
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          java .github/scripts/LinkCheck.java "${RUNNER_TEMP}/mod.jar" \
+            "${RUNNER_TEMP}/reference-classpath.txt" "${RUNNER_TEMP}/target-classpath.txt" | tee "${RUNNER_TEMP}/link.txt"
+
+      - name: Result
+        env:
+          MC: ${{ matrix.mc }}
+          API: ${{ matrix.api }}
+          COMPILE: ${{ steps.compile.outcome }}
+          LINK: ${{ steps.link.outcome }}
+        run: |
+          {
+            echo "### Minecraft ${MC} (Fabric API ${API})"
+            echo "- Sources compile (information only): **${COMPILE}**"
+            echo "- Reference jar links: **${LINK}**"
+            echo
+            echo '```'
+            tail -200 "${RUNNER_TEMP}/link.txt" 2>/dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "${LINK}" = "success" ]

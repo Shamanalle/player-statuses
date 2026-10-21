@@ -1,0 +1,20 @@
+// Put in Gradle's init.d by net-retry.sh for its second try only: Maven Central's files come from
+// Google's mirror of it. Plugin, buildscript and project repositories are all pointed there, those that
+// a plugin (Loom, ForgeGradle) adds later too. Works on Gradle 8 and 9.
+def mirror = 'https://maven-central.storage-download.googleapis.com/maven2/'
+def central = ['repo.maven.apache.org', 'repo1.maven.org']
+def redirect = { repos ->
+    repos.withType(MavenArtifactRepository).configureEach { repo ->
+        if (repo.url != null && central.contains(repo.url.host)) {
+            repo.url = mirror
+        }
+    }
+}
+settingsEvaluated { settings ->
+    redirect(settings.pluginManagement.repositories)
+    redirect(settings.dependencyResolutionManagement.repositories)
+}
+allprojects {
+    redirect(buildscript.repositories)
+    redirect(repositories)
+}

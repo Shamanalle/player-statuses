@@ -1,0 +1,113 @@
+name: Publish Release
+
+# Publishes the release for mod_version from gradle.properties: builds every jar, takes the notes
+# from CHANGELOG.md and attaches the jars. Starts either from a pushed tag (vX.Y.Z) or by hand
+# (Actions -> Publish Release -> Run workflow on main), in which case the tag is created too.
+# Then the files go to Modrinth and CurseForge through publish.yml.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      skip_ingame:
+        description: 'Skip the in-game tests (when the same commit already passed them on its pull request)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  # Real servers with the mod must start and answer its commands, and the clients take their screenshots,
+  # before anything is published
+  ingame:
+    name: In-game tests
+    if: ${{ !inputs.skip_ingame }}
+    uses: ./.github/workflows/ingame.yml
+
+  release:
+    name: Build & publish
+    needs: ingame
+    # Runs after the in-game tests pass, or without them when they were skipped on purpose
+    if: ${{ !cancelled() && (needs.ingame.result == 'success' || needs.ingame.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The 26.x module needs Java 25
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Resolve the release tag
+        id: meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          tag="v${version}"
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            if [ "${tag}" != "${GITHUB_REF_NAME}" ]; then
+              echo "::error::Tag ${GITHUB_REF_NAME} does not match mod_version ${version}"
+              exit 1
+            fi
+          else
+            if [ "${GITHUB_REF_NAME}" != "main" ]; then
+              echo "::error::Run the release from main, not ${GITHUB_REF_NAME}"
+              exit 1
+            fi
+            if gh release view "${tag}" > /dev/null 2>&1; then
+              echo "::error::Release ${tag} already exists; raise mod_version first"
+              exit 1
+            fi
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          # release, beta or alpha, from .github/publish.json; a beta or alpha gets it in the release name
+          channel=$(jq -r '.channel // "release"' .github/publish.json)
+          if [ "${channel}" = "release" ]; then
+            echo "name=${tag}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${tag} (${channel})" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test & build
+        run: ./gradlew build --no-daemon
+
+      - name: Release notes from CHANGELOG.md
+        run: bash .github/scripts/release-notes.sh "${{ steps.meta.outputs.tag }}" > release_body.md
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.meta.outputs.name }}
+          files: build/libs/*.jar
+          body_path: release_body.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Uploads the same files to Modrinth and CurseForge (skipped while their ids or tokens are not set)
+  stores:
+    name: Modrinth & CurseForge
+    needs: release
+    # Without this it would be skipped along with the in-game tests when they are skipped
+    if: ${{ !cancelled() && needs.release.result == 'success' }}
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    secrets: inherit

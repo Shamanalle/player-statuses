@@ -1,0 +1,40 @@
+name: "💡 Feature request / Идея"
+description: "Suggest an improvement / Предложить улучшение"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem you want solved: that helps find the best solution, not just the first one.
+        Опишите, какую задачу хотите решить: так проще найти лучшее решение, а не первое попавшееся.
+
+  - type: dropdown
+    id: side
+    attributes:
+      label: "Which side? / Какая сторона?"
+      options:
+        - "Client / Клиент"
+        - "Server / Сервер"
+        - "Both / Обе"
+        - "Not sure / Не знаю"
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "What problem does it solve / Какую задачу решаем"
+      placeholder: "On our server people open a mod's menu all the time and look busy… / На нашем сервере постоянно открывают меню мода и выглядят занятыми…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "How it could work / Как это могло бы работать"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives you tried / Что пробовали вместо"
+      description: "Settings, other mods / Настройки, другие моды"

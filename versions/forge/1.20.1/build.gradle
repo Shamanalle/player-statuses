@@ -1,0 +1,53 @@
+plugins {
+    id 'net.neoforged.moddev.legacyforge' version '2.0.147'
+    id 'java'
+}
+
+// Forge 1.20 - 1.20.1 (NeoForge for 1.20.1 loads this one too). The shared code is compiled against
+// Minecraft's own names and turned into Forge's runtime names by reobfJar; only the hooks into Forge
+// (package com.kasper.playerstatuses.forge) and a few small version adapters are Forge's own.
+
+evaluationDependsOn(':common')
+
+version = "${project.mod_version}+mc1.20.1"
+
+base {
+    archivesName = "player-statuses-forge"
+}
+
+repositories {
+    mavenCentral()
+}
+
+// The build against the oldest Forge it supports (1.20, .github/workflows/build.yml) passes -PloaderOverride.forge-1.20.1=<version>
+legacyForge {
+    version = project.findProperty("loaderOverride.${project.name}") ?: project.forge120_version
+}
+
+apply from: "${rootDir}/gradle/shared-sources.gradle"
+useShared(['shared/mc-1.20.1', 'shared/mc-all'])
+
+dependencies {
+    implementation project(':common')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("META-INF/mods.toml") {
+        expand "version": project.version
+    }
+}
+
+jar {
+    from project(':common').sourceSets.main.output
+}

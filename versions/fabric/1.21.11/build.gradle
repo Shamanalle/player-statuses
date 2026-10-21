@@ -1,0 +1,14 @@
+plugins {
+    id 'fabric-loom' version '1.18.2'
+    id 'java'
+}
+
+// Fabric / Quilt, Minecraft 1.21.11 (see gradle/fabric-band.gradle)
+ext.fabricTarget = 'mc1.21.11'
+ext.fabricKey = 'mc12111'
+ext.fabricJava = 21
+ext.fabricMinecraft = '>=1.21.11 <1.21.12'
+ext.fabricRemap = true
+ext.fabricShared = ['shared/fabric', 'shared/mc-1.21.11-up', 'shared/mc-all']
+ext.fabricGametest = true
+apply from: "${rootDir}/gradle/fabric-band.gradle"

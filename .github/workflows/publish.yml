@@ -1,0 +1,204 @@
+name: Publish to Modrinth & CurseForge
+
+# Uploads the jars of one GitHub release to Modrinth and CurseForge. The files are downloaded from the
+# release, so the stores get exactly what GitHub has. Runs after "Publish Release", or by hand
+# (Actions -> Publish to Modrinth & CurseForge -> Run workflow) for a tag that already has a release.
+#
+# Project ids live in .github/publish.json (read from the workflow's own commit, so a tag released
+# before the file existed can still be uploaded); the tokens are the MODRINTH_TOKEN and CURSEFORGE_TOKEN
+# secrets. A store whose id or token is missing is skipped with a warning.
+#
+# Modrinth gets the mod (one file for Fabric / Quilt, one for Forge / NeoForge) and the
+# Paper/Purpur/Folia/Spigot plugin. CurseForge keeps the plugin in a separate project in its Bukkit Plugins
+# section ("curseforge_plugin" in publish.json), uploaded by .github/scripts/curseforge-bukkit.sh.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, e.g. v1.2.1'
+        type: string
+        required: true
+      stores:
+        description: 'Where to upload'
+        type: choice
+        # curseforge-plugin: only the plugin, to its CurseForge project
+        options: [both, modrinth, curseforge, curseforge-plugin]
+        default: both
+
+permissions:
+  contents: read
+
+jobs:
+  config:
+    name: Check settings
+    runs-on: ubuntu-latest
+    outputs:
+      modrinth: ${{ steps.ids.outputs.modrinth }}
+      curseforge: ${{ steps.ids.outputs.curseforge }}
+      curseforge_plugin: ${{ steps.ids.outputs.curseforge_plugin }}
+      channel: ${{ steps.ids.outputs.channel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+
+      - name: Read project ids and tokens
+        id: ids
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          # Only when run by hand; a release always uploads to both
+          STORES: ${{ inputs.stores || 'both' }}
+        run: |
+          modrinth=$(jq -r '.modrinth // ""' .github/publish.json)
+          curseforge=$(jq -r '.curseforge // ""' .github/publish.json)
+          curseforge_plugin=$(jq -r '.curseforge_plugin // ""' .github/publish.json)
+          if [ -z "${modrinth}" ] || [ -z "${MODRINTH_TOKEN}" ]; then
+            echo "::warning::Modrinth skipped: set \"modrinth\" in .github/publish.json and the MODRINTH_TOKEN secret"
+            modrinth=""
+          fi
+          if [ -z "${curseforge}" ] || [ -z "${CURSEFORGE_TOKEN}" ]; then
+            echo "::warning::CurseForge skipped: set \"curseforge\" in .github/publish.json and the CURSEFORGE_TOKEN secret"
+            curseforge=""
+          fi
+          if [ -z "${curseforge_plugin}" ] || [ -z "${CURSEFORGE_TOKEN}" ]; then
+            echo "::warning::CurseForge plugin skipped: set \"curseforge_plugin\" in .github/publish.json and the CURSEFORGE_TOKEN secret"
+            curseforge_plugin=""
+          fi
+          case "${STORES}" in
+            modrinth) curseforge=""; curseforge_plugin="" ;;
+            curseforge) modrinth="" ;;
+            curseforge-plugin) modrinth=""; curseforge="" ;;
+          esac
+          echo "modrinth=${modrinth}" >> "$GITHUB_OUTPUT"
+          echo "curseforge=${curseforge}" >> "$GITHUB_OUTPUT"
+          echo "curseforge_plugin=${curseforge_plugin}" >> "$GITHUB_OUTPUT"
+          # release, beta or alpha
+          echo "channel=$(jq -r '.channel // "release"' .github/publish.json)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: ${{ matrix.name }}
+    needs: config
+    if: needs.config.outputs.modrinth != '' || needs.config.outputs.curseforge != '' || needs.config.outputs.curseforge_plugin != ''
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          # One file for every Forge and NeoForge version: it picks the build for the running Minecraft at
+          # startup. NeoForge 1.20.1 is a fork of Forge 1.20.1 and loads it as Forge
+          - name: Forge/NeoForge for 1.20.1 – 26.3
+            file: forge-neoforge-{v}+mc1.20.1-26.x.jar
+            target: mc1.20.1-26.x-forge
+            loaders: forge neoforge
+            game-versions: 1.20 1.20.1 1.21 1.21.1 1.21.9 1.21.10 1.21.11 26.1 26.1.1 26.1.2 26.2 26.3
+            java: 17
+            dependencies: ''
+            curseforge: true
+          # Last of the mod files, so it is the newest and stays on top of the file lists. One file for every
+          # Fabric version: it picks the build for the running Minecraft at startup
+          - name: Fabric/Quilt for 1.21.9 – 26.3
+            file: fabric-{v}+mc1.21.9-26.x.jar
+            target: mc1.21.9-26.x
+            loaders: fabric quilt
+            game-versions: 1.21.9 1.21.10 1.21.11 26.1 26.1.1 26.1.2 26.2 26.3
+            java: 21
+            dependencies: fabric-api(required)
+            curseforge: true
+          - name: Paper/Purpur/Folia/Spigot plugin
+            file: bukkit-{v}.jar
+            target: bukkit
+            loaders: paper purpur folia spigot bukkit
+            game-versions: 1.16.5 1.17 1.17.1 1.18 1.18.1 1.18.2 1.19 1.19.1 1.19.2 1.19.3 1.19.4 1.20 1.20.1 1.20.2 1.20.3 1.20.4 1.20.5 1.20.6 1.21 1.21.1 1.21.2 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.9 1.21.10 1.21.11 26.1 26.1.1 26.1.2 26.2 26.3
+            java: 8
+            dependencies: ''
+            curseforge: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the release file and notes
+        id: files
+        # Nothing to do for a mod file when only the CurseForge plugin is chosen
+        if: needs.config.outputs.modrinth != '' || (matrix.curseforge && needs.config.outputs.curseforge != '') || (matrix.target == 'bukkit' && needs.config.outputs.curseforge_plugin != '')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          PATTERN: ${{ matrix.file }}
+          LOADERS: ${{ matrix.loaders }}
+          GAME_VERSIONS: ${{ matrix.game-versions }}
+          DEPENDENCIES: ${{ matrix.dependencies }}
+        run: |
+          # mc-publish takes lists one item per line
+          for name in LOADERS GAME_VERSIONS DEPENDENCIES; do
+            output=$(echo "${name}" | tr 'A-Z_' 'a-z-')
+            { echo "${output}<<EOF"; tr ' ' '\n' <<< "${!name}"; echo "EOF"; } >> "$GITHUB_OUTPUT"
+          done
+          version="${TAG#v}"
+          file="player-statuses-${PATTERN//\{v\}/${version}}"
+          if ! gh release download "${TAG}" --pattern "${file}" --dir dist; then
+            echo "::error::No ${PATTERN//\{v\}/${version}} file in release ${TAG}"
+            exit 1
+          fi
+          # The Fabric jar serves several loaders, so the stores get it without "fabric" in the name
+          upload="${file/-fabric-/-}"
+          if [ "${upload}" != "${file}" ]; then
+            mv "dist/${file}" "dist/${upload}"
+          fi
+          bash .github/scripts/release-notes.sh "${TAG}" > dist/notes.md
+          echo "file=dist/${upload}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload
+        # The plugin goes to Modrinth here and to its own CurseForge project in the next step
+        if: needs.config.outputs.modrinth != '' || (matrix.curseforge && needs.config.outputs.curseforge != '')
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ${{ needs.config.outputs.modrinth }}
+          modrinth-token: ${{ needs.config.outputs.modrinth != '' && secrets.MODRINTH_TOKEN || '' }}
+          # Older versions stay featured: unfeaturing them would need the token's "Write versions" scope
+          modrinth-unfeature-mode: none
+          curseforge-id: ${{ matrix.curseforge && needs.config.outputs.curseforge || '' }}
+          curseforge-token: ${{ matrix.curseforge && needs.config.outputs.curseforge != '' && secrets.CURSEFORGE_TOKEN || '' }}
+          files: ${{ steps.files.outputs.file }}
+          name: ${{ steps.files.outputs.version }} · ${{ matrix.name }}
+          version: ${{ steps.files.outputs.version }}+${{ matrix.target }}
+          version-type: ${{ needs.config.outputs.channel }}
+          changelog-file: dist/notes.md
+          loaders: ${{ steps.files.outputs.loaders }}
+          game-versions: ${{ steps.files.outputs.game-versions }}
+          java: ${{ matrix.java }}
+          dependencies: ${{ steps.files.outputs.dependencies }}
+
+      - name: Upload the plugin to CurseForge
+        if: matrix.target == 'bukkit' && needs.config.outputs.curseforge_plugin != ''
+        env:
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          PROJECT: ${{ needs.config.outputs.curseforge_plugin }}
+          FILE: ${{ steps.files.outputs.file }}
+          NAME: ${{ steps.files.outputs.version }} · ${{ matrix.name }}
+          CHANNEL: ${{ needs.config.outputs.channel }}
+          GAME_VERSIONS: ${{ matrix.game-versions }}
+        run: |
+          # shellcheck disable=SC2086
+          bash .github/scripts/curseforge-bukkit.sh "${PROJECT}" "${FILE}" "${NAME}" "${CHANNEL}" dist/notes.md ${GAME_VERSIONS}
+
+  verify:
+    name: Check the stores
+    needs: publish
+    if: ${{ !cancelled() && needs.publish.result != 'skipped' }}
+    # Warnings only: CurseForge's file list (via cfwidget) can lag a few minutes behind the upload
+    uses: ./.github/workflows/check-stores.yml
+    with:
+      tag: ${{ inputs.tag }}
+      warn-only: true
+    secrets: inherit

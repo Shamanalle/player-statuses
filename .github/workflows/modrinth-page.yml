@@ -1,0 +1,154 @@
+name: Modrinth page
+
+# Uploads docs/modrinth.md as the Modrinth project page and the English summary from
+# docs/store-description.md as its short description, so the page is edited with a commit.
+# The gallery is docs/gallery.json (file, title, description, featured; the order is the list's order):
+# each picture is uploaded to the project gallery, replacing the one with the same title (a picture
+# Modrinth already holds, answered as a duplicate, is left as it is with a warning). Pictures
+# added on the site by hand keep their place. Modrinth accepts 5 MiB per picture.
+# Needs the MODRINTH_TOKEN secret with the "Write projects" scope; without it the upload is skipped
+# with a warning. Pull requests only check that the page, the summary and the gallery can be read.
+
+on:
+  push:
+    branches: [ "main" ]
+    paths: [ "docs/modrinth.md", "docs/store-description.md", "docs/gallery.json", "docs/images/**", ".github/workflows/modrinth-page.yml" ]
+  pull_request:
+    paths: [ "docs/modrinth.md", "docs/store-description.md", "docs/gallery.json", "docs/images/**", ".github/workflows/modrinth-page.yml" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  page:
+    name: Check and upload
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build the request
+        run: |
+          summary=$(grep -m1 '^\*\*Summary:\*\*' docs/store-description.md | sed 's/^\*\*Summary:\*\* *//')
+          if [ -z "${summary}" ]; then
+            echo "::error file=docs/store-description.md::No **Summary:** line"
+            exit 1
+          fi
+          # Modrinth allows 3 - 256 characters in the summary
+          if [ "${#summary}" -gt 256 ]; then
+            echo "::error file=docs/store-description.md::The summary is ${#summary} characters; Modrinth allows 256"
+            exit 1
+          fi
+          if [ ! -s docs/modrinth.md ]; then
+            echo "::error file=docs/modrinth.md::The page is empty"
+            exit 1
+          fi
+          jq -n --arg description "${summary}" --rawfile body docs/modrinth.md \
+            '{description: $description, body: $body}' > request.json
+          echo "Summary: ${#summary} characters; page: $(wc -c < docs/modrinth.md) bytes"
+
+      - name: Check the gallery
+        run: |
+          list=docs/gallery.json
+          jq -e 'type == "array"' "${list}" > /dev/null || { echo "::error file=${list}::Not a list"; exit 1; }
+          titles=$(jq -r '.[].title' "${list}" | sort | uniq -d)
+          if [ -n "${titles}" ]; then
+            echo "::error file=${list}::Two pictures share a title: ${titles}"
+            exit 1
+          fi
+          jq -c '.[]' "${list}" | while read -r entry; do
+            file=$(echo "${entry}" | jq -r '.file')
+            title=$(echo "${entry}" | jq -r '.title // ""')
+            if [ ! -s "${file}" ]; then
+              echo "::error file=${list}::${file} is missing or empty"
+              exit 1
+            fi
+            if [ -z "${title}" ] || [ "${#title}" -gt 100 ]; then
+              echo "::error file=${list}::${file}: the title must be 1 - 100 characters"
+              exit 1
+            fi
+            if [ "$(wc -c < "${file}")" -gt 5242880 ]; then
+              echo "::error file=${list}::${file} is over 5 MiB, Modrinth refuses it"
+              exit 1
+            fi
+          done
+          echo "Gallery: $(jq length "${list}") pictures"
+
+      - name: Upload to Modrinth
+        if: github.event_name != 'pull_request'
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          project=$(jq -r '.modrinth // ""' .github/publish.json)
+          if [ -z "${project}" ] || [ -z "${MODRINTH_TOKEN}" ]; then
+            echo "::warning::Modrinth page skipped: set \"modrinth\" in .github/publish.json and the MODRINTH_TOKEN secret"
+            exit 0
+          fi
+          status=$(curl -sS -o response.txt -w '%{http_code}' -X PATCH \
+            -H "Authorization: ${MODRINTH_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -H "User-Agent: Shamanalle/player-statuses (GitHub Actions)" \
+            --data @request.json \
+            "https://api.modrinth.com/v2/project/${project}")
+          if [ "${status}" = "204" ]; then
+            echo "Modrinth page updated"
+          elif [ "${status}" = "401" ] || [ "${status}" = "403" ]; then
+            echo "::error::Modrinth refused the token (${status}): give MODRINTH_TOKEN the \"Write projects\" scope"
+            cat response.txt
+            exit 1
+          else
+            echo "::error::Modrinth answered ${status}"
+            cat response.txt
+            exit 1
+          fi
+
+      - name: Upload the gallery to Modrinth
+        if: github.event_name != 'pull_request'
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: |
+          project=$(jq -r '.modrinth // ""' .github/publish.json)
+          if [ -z "${project}" ] || [ -z "${MODRINTH_TOKEN}" ]; then
+            echo "::warning::Modrinth gallery skipped: set \"modrinth\" in .github/publish.json and the MODRINTH_TOKEN secret"
+            exit 0
+          fi
+          api="https://api.modrinth.com/v2/project/${project}"
+          agent="Shamanalle/player-statuses (GitHub Actions)"
+          if [ "$(jq length docs/gallery.json)" = "0" ]; then
+            echo "The gallery list is empty: nothing to upload"
+            exit 0
+          fi
+          curl -sS -H "User-Agent: ${agent}" "${api}" > project.json
+          n=0
+          jq -c '.[]' docs/gallery.json | while read -r entry; do
+            file=$(echo "${entry}" | jq -r '.file')
+            title=$(echo "${entry}" | jq -r '.title')
+            description=$(echo "${entry}" | jq -r '.description // ""')
+            featured=$(echo "${entry}" | jq -r '.featured // false')
+            ext="${file##*.}"
+            # The picture with this title goes first, so an update replaces it
+            old=$(jq -r --arg t "${title}" '.gallery[]? | select(.title == $t) | .url' project.json)
+            for url in ${old}; do
+              deleted=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE -H "Authorization: ${MODRINTH_TOKEN}" -H "User-Agent: ${agent}" \
+                --get --data-urlencode "url=${url}" "${api}/gallery")
+              if [ "${deleted}" != "204" ]; then
+                echo "::warning::${title}: Modrinth answered ${deleted} when removing the old picture"
+              fi
+            done
+            enc() { jq -rn --arg v "$1" '$v | @uri'; }
+            query="ext=${ext}&featured=${featured}&title=$(enc "${title}")&description=$(enc "${description}")&ordering=${n}"
+            status=$(curl -sS -o response.txt -w '%{http_code}' -X POST \
+              -H "Authorization: ${MODRINTH_TOKEN}" -H "User-Agent: ${agent}" -H "Content-Type: image/${ext}" \
+              --data-binary "@${file}" "${api}/gallery?${query}")
+            echo "${title}: Modrinth answered ${status}"
+            if [ "${status}" = "400" ] && grep -qi 'duplicate' response.txt; then
+              # The same picture is already in the gallery (nothing changed since the last run)
+              echo "::warning::${title}: the picture is already in the Modrinth gallery, left as it is"
+            elif [ "${status}" != "204" ]; then
+              cat response.txt
+              exit 1
+            fi
+            n=$((n + 1))
+          done

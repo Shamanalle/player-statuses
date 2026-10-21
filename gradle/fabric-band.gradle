@@ -1,0 +1,123 @@
+// A Fabric / Quilt build for one band of Minecraft versions (fabric-1.21.10, fabric-26, ...). Its jar is
+// an input of the universal Fabric jar (see the root build.gradle), not a release file itself.
+//
+// The module applies Loom (fabric-loom, or net.fabricmc.fabric-loom for the unobfuscated 26.x) and sets,
+// before applying this file:
+//   fabricTarget   the file's version range, "mc1.21.9-1.21.10"
+//   fabricKey      the gradle.properties prefix of its versions ("mc12110": mc12110_minecraft, ...)
+//   fabricJava     21 or 25
+//   fabricShared   the shared folders it compiles, in order of precedence
+//   fabricMinecraft  the Minecraft range for fabric.mod.json, ">=1.21.9 <1.21.11"
+//   fabricRemap    true for obfuscated Minecraft (official names in the sources, intermediary in the jar)
+
+// Its jar carries the classes of ':common', so that module is configured first (configure-on-demand)
+evaluationDependsOn(':common')
+
+version = "${project.mod_version}+${fabricTarget}"
+
+base {
+    archivesName = "player-statuses-fabric"
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = "TerraformersMC"
+        url = 'https://maven.terraformersmc.com/releases'
+    }
+}
+
+apply from: "${rootDir}/gradle/shared-sources.gradle"
+useShared(fabricShared)
+
+def mc = project.property("${fabricKey}_minecraft")
+def loader = project.property("${fabricKey}_fabric_loader")
+def api = project.property("${fabricKey}_fabric_api")
+
+dependencies {
+    implementation project(':common')
+    minecraft "com.mojang:minecraft:${mc}"
+    if (fabricRemap) {
+        mappings loom.officialMojangMappings()
+        modImplementation "net.fabricmc:fabric-loader:${loader}"
+        modImplementation "net.fabricmc.fabric-api:fabric-api:${api}"
+    } else {
+        implementation "net.fabricmc:fabric-loader:${loader}"
+        implementation "net.fabricmc.fabric-api:fabric-api:${api}"
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = fabricJava as int
+    options.encoding = 'UTF-8'
+}
+
+java {
+    sourceCompatibility = JavaVersion.toVersion(fabricJava)
+    targetCompatibility = JavaVersion.toVersion(fabricJava)
+}
+
+processResources {
+    def props = [version: project.version, minecraft: fabricMinecraft, java: fabricJava as String, fabricloader: loader]
+    inputs.properties props
+    filesMatching("fabric.mod.json") {
+        expand props
+    }
+}
+
+jar {
+    from project(':common').sourceSets.main.output
+}
+
+if (fabricRemap) {
+    remapJar {
+        archiveClassifier = ''
+    }
+}
+
+// The classpath the mod compiles against, one entry per line. The 26.x compatibility check
+// (.github/workflows/compat-26.yml) compares the jar against this list for each Minecraft version.
+tasks.register('writeCompileClasspath') {
+    def out = layout.buildDirectory.file('compile-classpath.txt')
+    def files = sourceSets.main.compileClasspath
+    outputs.file out
+    outputs.upToDateWhen { false }
+    doLast {
+        out.get().asFile.text = files.files.join('\n') + '\n'
+    }
+}
+
+// In-game test (Fabric client gametest, run by .github/workflows/ingame.yml) for the bands that set
+// fabricGametest: a real client opens a world, runs the mod's commands and takes screenshots.
+if (project.hasProperty('fabricGametest') && fabricGametest) {
+    fabricApi {
+        configureTests {
+            createSourceSet = true
+            modId = 'playerstatuses-gametest'
+            enableGameTests = false
+            enableClientGameTests = true
+            eula = true
+        }
+    }
+
+    sourceSets {
+        gametest {
+            java {
+                srcDir "${rootDir}/shared/gametest/src/main/java"
+            }
+            resources {
+                srcDir "${rootDir}/shared/gametest/src/main/resources"
+                // The mod's texts: in the dev client ':common' is a plain library, so its assets are not loaded
+                srcDir "${rootDir}/common/src/main/resources"
+                include "assets/**", "fabric.mod.json"
+            }
+        }
+    }
+
+    // Minecraft 1.21.x runs on Java 21 (the newest Java its Mixin knows); 26.x on 25
+    tasks.matching { it.name == 'runClientGameTest' }.configureEach {
+        javaLauncher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(fabricJava as int)
+        }
+    }
+}

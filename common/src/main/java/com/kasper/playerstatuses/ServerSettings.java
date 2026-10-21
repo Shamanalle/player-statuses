@@ -4,7 +4,7 @@ import java.util.Arrays;
 
 /**
  * The server's settings ({@code config/playerstatuses-server.properties}, on Bukkit
- * {@code plugins/PlayerStatuses/server.properties}). Read again when the file changes.
+ * {@code plugins/PlayerStatuses/playerstatuses-server.properties}). Read again when the file changes.
  */
 public final class ServerSettings extends SettingsFile {
 

@@ -1,0 +1,57 @@
+// A NeoForge build for one band of Minecraft versions (neoforge-1.21.1, neoforge-26, ...). NeoForge runs
+// with Minecraft's own names, so the shared code is compiled here against the band's Minecraft as it is.
+// Its jar is an input of the universal Forge / NeoForge jar (see the root build.gradle).
+//
+// The module applies net.neoforged.moddev and sets, before applying this file:
+//   nfTarget    the file's version range, "mc1.21-1.21.1"
+//   nfVersion   the gradle.properties key of the NeoForge version it compiles against
+//   nfShared    the shared folders it compiles, in order of precedence
+// Every band is Java 21 bytecode: the universal jar holds nothing newer, since the oldest Forge and
+// NeoForge it supports read every class in it with an ASM that stops at Java 21.
+
+evaluationDependsOn(':common')
+
+version = "${project.mod_version}+${nfTarget}"
+
+base {
+    archivesName = "player-statuses-neoforge"
+}
+
+repositories {
+    mavenCentral()
+}
+
+// The build against the oldest NeoForge of the band (.github/workflows/build.yml) passes -PloaderOverride.<module>=<version>
+neoForge {
+    version = project.findProperty("loaderOverride.${project.name}") ?: project.property(nfVersion)
+}
+
+apply from: "${rootDir}/gradle/shared-sources.gradle"
+useShared(nfShared)
+
+dependencies {
+    implementation project(':common')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+    options.encoding = 'UTF-8'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    // 26.x and its loader are published for Java 25 only; compiling against them for 21 is fine
+    disableAutoTargetJvm()
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("META-INF/*.toml") {
+        expand "version": project.version
+    }
+}
+
+jar {
+    from project(':common').sourceSets.main.output
+}

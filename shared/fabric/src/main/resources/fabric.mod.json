@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "playerstatuses",
+  "version": "${version}",
+  "name": "Player Statuses",
+  "icon": "assets/playerstatuses/icon.png",
+  "description": "Shows above players' heads what they are doing: typing, in the inventory or a chest, AFK, tabbed out. Works with the mod on the server, or on Paper with the plugin.",
+  "authors": [
+    "Shamanalle"
+  ],
+  "contact": {
+    "homepage": "https://github.com/Shamanalle/player-statuses",
+    "sources": "https://github.com/Shamanalle/player-statuses",
+    "issues": "https://github.com/Shamanalle/player-statuses/issues"
+  },
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.kasper.playerstatuses.PlayerStatusesFabric"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${fabricloader}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft}",
+    "java": ">=${java}"
+  }
+}
