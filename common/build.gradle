@@ -1,0 +1,40 @@
+plugins {
+    id 'java-library'
+}
+
+// Everything that does not need Minecraft: the status model, the network messages, the relay on the
+// server, idle detection, settings, commands and texts. Compiled into every jar; unit-tested here.
+base {
+    archivesName = "player-statuses-common"
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+processResources {
+    inputs.property "version", project.mod_version
+    filesMatching("playerstatuses-build.properties") {
+        expand "version": project.mod_version
+    }
+}
+
+test {
+    useJUnitPlatform()
+}

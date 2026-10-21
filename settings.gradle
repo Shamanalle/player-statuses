@@ -1,0 +1,37 @@
+pluginManagement {
+    repositories {
+        maven { url = uri("https://maven.fabricmc.net/") }
+        maven { url = uri("https://maven.neoforged.net/releases/") }
+        maven { url = uri("https://maven.minecraftforge.net/") }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    // Java toolchains: the Java 8 build of the common code needs a JDK 17 javac (gradle/jabel.gradle)
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = "player-statuses"
+
+include "common"
+include "common-j8"
+
+// The Minecraft modules live in versions/<loader>/<band> and keep the project name <loader>-<band>
+// (:fabric-1.21.11 is versions/fabric/1.21.11). Which Minecraft versions a band covers is in gradle.properties.
+def bands = [
+        fabric  : ['1.21.10', '1.21.11', '26'],
+        forge   : ['1.20.1', '1.21.10', '1.21.11', '26'],
+        neoforge: ['1.21.1', '1.21.10', '1.21.11', '26'],
+]
+bands.each { loader, list ->
+    list.each { band ->
+        include "${loader}-${band}"
+        project(":${loader}-${band}").projectDir = file("versions/${loader}/${band}")
+    }
+}
+
+include "bukkit"
+include "universal"
+include "packaging"

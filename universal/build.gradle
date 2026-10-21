@@ -1,0 +1,33 @@
+plugins {
+    id 'java'
+}
+
+// The dispatchers of the universal jars (see MergeJars and the root build.gradle): the only classes there that
+// every Minecraft version loads, so they are Java 8 bytecode and use the loader API alone
+repositories {
+    mavenCentral()
+    maven { url = uri("https://maven.fabricmc.net/") }
+}
+
+sourceSets {
+    fabric
+    // Forge's and NeoForge's annotations and constructor types, only to compile against: the real ones come with the loader
+    stubs
+    forge {
+        compileClasspath += stubs.output
+    }
+}
+
+dependencies {
+    // The oldest Fabric Loader any band allows, so nothing newer is used
+    fabricCompileOnly("net.fabricmc:fabric-loader:0.14.21") {
+        transitive = false
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 8
+    options.encoding = 'UTF-8'
+    // javac warns that release 8 is old; it is what Minecraft 1.16.5 runs on
+    options.compilerArgs += ['-Xlint:-options']
+}
