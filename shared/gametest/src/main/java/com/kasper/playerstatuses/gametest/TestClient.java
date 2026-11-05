@@ -3,11 +3,15 @@ package com.kasper.playerstatuses.gametest;
 import com.kasper.playerstatuses.Activity;
 import com.kasper.playerstatuses.ClientSettings;
 import com.kasper.playerstatuses.PlayerStatus;
+import com.kasper.playerstatuses.StatusMessages;
+import com.kasper.playerstatuses.StatusRelay;
 import com.kasper.playerstatuses.client.ClientAccess;
 import com.kasper.playerstatuses.client.ClientSide;
 import com.kasper.playerstatuses.client.ScreenDetector;
 import com.kasper.playerstatuses.client.SettingsScreen;
 import com.kasper.playerstatuses.client.TabListDecorator;
+import com.kasper.playerstatuses.server.ServerSide;
+import com.kasper.playerstatuses.server.VanillaBridge;
 import com.mojang.authlib.GameProfile;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -15,6 +19,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.RemotePlayer;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.gamerules.GameRules;
 
 /** Small client calls of the in-game tests; a band with other ones has its own copy of this file. */
@@ -133,5 +138,26 @@ final class TestClient {
 
     static void closeScreen(Minecraft client) {
         ClientAccess.setScreen(client, null);
+    }
+
+    static boolean verifyVanillaBridge(Minecraft client) {
+        MinecraftServer server = client.getSingleplayerServer();
+        if (server == null || client.player == null) {
+            return false;
+        }
+        UUID id = client.player.getUUID();
+        long now = System.currentTimeMillis();
+        StatusRelay relay = ServerSide.core().relay();
+        relay.remove(id);
+        ServerSide.detector().setOpenContainer(id, Activity.FURNACE, relay, now);
+        ServerSide.detector().updatePlayer(id, ServerSide.core().settings(), relay, now);
+        VanillaBridge.tick(server, ServerSide.core(), now);
+        boolean spawned = VanillaBridge.activeOverheadCount() == 1
+                && relay.current(id, now).activity() == Activity.FURNACE;
+
+        relay.onClientMessage(id, StatusMessages.update(PlayerStatus.NONE), now + 100);
+        VanillaBridge.tick(server, ServerSide.core(), now + 100);
+        boolean cleaned = VanillaBridge.activeOverheadCount() == 0;
+        return spawned && cleaned;
     }
 }

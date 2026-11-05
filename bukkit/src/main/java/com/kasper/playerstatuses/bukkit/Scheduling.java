@@ -1,5 +1,6 @@
 package com.kasper.playerstatuses.bukkit;
 
+import org.bukkit.entity.Entity;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -11,6 +12,9 @@ interface Scheduling {
 
     /** Runs {@code tick} every server tick: on the main thread, or on Folia's global region. */
     void everyTick(Runnable tick);
+
+    /** Runs {@code task} on {@code entity}'s owning thread (main thread on Bukkit/Paper, entity scheduler on Folia). */
+    void runOnEntity(Entity entity, Runnable task);
 
     void cancelAll();
 

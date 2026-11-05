@@ -1,14 +1,17 @@
 package com.kasper.playerstatuses.bukkit;
 
+import com.kasper.playerstatuses.Activity;
 import com.kasper.playerstatuses.CommandReply;
 import com.kasper.playerstatuses.ModLog;
 import com.kasper.playerstatuses.PlayerStatus;
+import com.kasper.playerstatuses.ServerDetector;
 import com.kasper.playerstatuses.ServerSettings;
 import com.kasper.playerstatuses.StatusCommands;
 import com.kasper.playerstatuses.StatusMessages;
 import com.kasper.playerstatuses.StatusRelay;
 import com.kasper.playerstatuses.StatusServer;
 import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
@@ -16,17 +19,26 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
+import org.bukkit.potion.PotionEffectType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,9 +52,22 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
 
     private static final int RELOAD_CHECK_TICKS = 40;
 
+    private static final class TabState {
+        final String baseListName;
+        String lastDesc;
+
+        TabState(String baseListName, String lastDesc) {
+            this.baseListName = baseListName;
+            this.lastDesc = lastDesc;
+        }
+    }
+
     private final StatusServer core = new StatusServer();
+    private final ServerDetector detector = new ServerDetector();
     private final Set<UUID> leftPlayers = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Map<UUID, TabState> tabStates = new ConcurrentHashMap<>();
     private Scheduling scheduling;
+    private OverheadBridge overheadBridge;
     private int ticks;
 
     @Override
@@ -51,6 +76,7 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
                 : level == ModLog.Level.WARN ? Level.WARNING : Level.SEVERE, text));
         core.start(getDataFolder().toPath().resolve(ServerSettings.FILE));
         scheduling = Scheduling.create(this);
+        overheadBridge = OverheadBridge.create(this, scheduling);
         getServer().getMessenger().registerIncomingPluginChannel(this, StatusMessages.CHANNEL, this);
         getServer().getMessenger().registerOutgoingPluginChannel(this, StatusMessages.CHANNEL);
         getServer().getPluginManager().registerEvents(this, this);
@@ -62,6 +88,9 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
 
     @Override
     public void onDisable() {
+        if (overheadBridge != null) {
+            overheadBridge.clearAll();
+        }
         if (scheduling != null) {
             scheduling.cancelAll();
         }
@@ -92,6 +121,17 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
     private void tick() {
         long now = System.currentTimeMillis();
         StatusRelay relay = core.relay();
+        Collection<? extends Player> players = getServer().getOnlinePlayers();
+
+        boolean hasVanillaViewer = false;
+        for (Player p : players) {
+            UUID id = p.getUniqueId();
+            detector.updatePlayer(id, core.settings(), relay, now);
+            if (!relay.hasMod(id)) {
+                hasVanillaViewer = true;
+            }
+        }
+
         relay.tick(now);
 
         List<StatusMessages.Entry> updates = new ArrayList<>(relay.takeChangedEntries(now));
@@ -102,7 +142,7 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
 
         if (!updates.isEmpty()) {
             List<byte[]> packets = StatusMessages.statusesSplit(updates);
-            for (Player p : getServer().getOnlinePlayers()) {
+            for (Player p : players) {
                 if (relay.hasMod(p.getUniqueId())) {
                     for (byte[] packet : packets) {
                         p.sendPluginMessage(this, StatusMessages.CHANNEL, packet);
@@ -111,39 +151,131 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
             }
         }
 
+        if (overheadBridge != null) {
+            overheadBridge.tick(players, core, core.settings().get(ServerSettings.VANILLA_OVERHEAD), hasVanillaViewer, now);
+        }
+        tickVanillaTabList(players, relay, hasVanillaViewer, now);
+
         if (++ticks % RELOAD_CHECK_TICKS == 0) {
             core.reloadIfChanged();
             relay.retainOnline(id -> getServer().getPlayer(id) != null);
+            detector.retainOnline(id -> getServer().getPlayer(id) != null);
         }
+    }
+
+    private void tickVanillaTabList(Collection<? extends Player> players, StatusRelay relay, boolean hasVanillaViewer, long now) {
+        boolean enabled = core.settings().get(ServerSettings.VANILLA_TAB_LIST) && hasVanillaViewer;
+        String lang = core.settings().get(ServerSettings.LANGUAGE);
+        Set<UUID> onlineIds = new HashSet<>();
+
+        for (Player p : players) {
+            UUID id = p.getUniqueId();
+            onlineIds.add(id);
+            scheduling.runOnEntity(p, () -> {
+                if (!p.isOnline()) {
+                    return;
+                }
+                boolean hidden = !enabled
+                        || p.getGameMode() == GameMode.SPECTATOR
+                        || p.hasPotionEffect(PotionEffectType.INVISIBILITY);
+                PlayerStatus status = hidden ? PlayerStatus.NONE : relay.current(id, now);
+                String desc = status.isNone() ? "" : StatusCommands.describe(lang, status);
+                TabState state = tabStates.get(id);
+                if (desc.isEmpty()) {
+                    if (state != null) {
+                        tabStates.remove(id);
+                        p.setPlayerListName(state.baseListName);
+                    }
+                    return;
+                }
+                if (state != null && desc.equals(state.lastDesc)) {
+                    return;
+                }
+                String base = state != null ? state.baseListName : p.getPlayerListName();
+                if (base == null || base.isEmpty()) {
+                    base = p.getName();
+                }
+                tabStates.put(id, new TabState(base, desc));
+                p.setPlayerListName(base + " " + ChatColor.GRAY + "[" + desc + "]" + ChatColor.RESET);
+            });
+        }
+
+        tabStates.keySet().removeIf(id -> !onlineIds.contains(id));
     }
 
     @EventHandler
     public void onMove(PlayerMoveEvent event) {
-        Location from = event.getFrom();
         Location to = event.getTo();
         if (to == null) {
             return;
         }
-        UUID id = event.getPlayer().getUniqueId();
-        if (core.relay().isManualAfk(id)) {
-            if (Math.abs(to.getX() - from.getX()) > 0.02
-                    || Math.abs(to.getY() - from.getY()) > 0.02
-                    || Math.abs(to.getZ() - from.getZ()) > 0.02
-                    || Math.abs(to.getYaw() - from.getYaw()) > 0.5f
-                    || Math.abs(to.getPitch() - from.getPitch()) > 0.5f) {
-                core.relay().onActed(id, System.currentTimeMillis());
-            }
-        }
+        detector.onPose(
+                event.getPlayer().getUniqueId(),
+                to.getX(), to.getY(), to.getZ(), to.getYaw(), to.getPitch(),
+                core.relay(),
+                System.currentTimeMillis()
+        );
     }
 
     @EventHandler
     public void onChat(AsyncPlayerChatEvent event) {
-        core.relay().onActed(event.getPlayer().getUniqueId(), System.currentTimeMillis());
+        detector.onActed(event.getPlayer().getUniqueId(), core.relay(), System.currentTimeMillis());
+    }
+
+    @EventHandler
+    public void onCommandPreprocess(PlayerCommandPreprocessEvent event) {
+        if (!ServerDetector.isAfkCommand(event.getMessage())) {
+            detector.onActed(event.getPlayer().getUniqueId(), core.relay(), System.currentTimeMillis());
+        }
+    }
+
+    @EventHandler
+    public void onInteract(PlayerInteractEvent event) {
+        detector.onActed(event.getPlayer().getUniqueId(), core.relay(), System.currentTimeMillis());
+    }
+
+    @EventHandler
+    public void onInventoryOpen(InventoryOpenEvent event) {
+        if (event.getPlayer() instanceof Player) {
+            Player player = (Player) event.getPlayer();
+            String type = event.getInventory() != null && event.getInventory().getType() != null
+                    ? event.getInventory().getType().name() : "";
+            detector.setOpenContainer(
+                    player.getUniqueId(),
+                    ServerDetector.fromBukkitInventoryType(type),
+                    core.relay(),
+                    System.currentTimeMillis()
+            );
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        if (event.getPlayer() instanceof Player) {
+            detector.setOpenContainer(
+                    event.getPlayer().getUniqueId(),
+                    Activity.NONE,
+                    core.relay(),
+                    System.currentTimeMillis()
+            );
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (event.getWhoClicked() instanceof Player) {
+            detector.onActed(event.getWhoClicked().getUniqueId(), core.relay(), System.currentTimeMillis());
+        }
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         UUID id = event.getPlayer().getUniqueId();
+        detector.remove(id);
+        tabStates.remove(id);
+        if (overheadBridge != null) {
+            overheadBridge.remove(id);
+        }
         StatusRelay relay = core.relay();
         if (!relay.current(id, System.currentTimeMillis()).isNone()) {
             leftPlayers.add(id);

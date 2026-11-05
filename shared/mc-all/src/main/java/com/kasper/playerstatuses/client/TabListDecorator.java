@@ -79,14 +79,25 @@ public final class TabListDecorator {
                 entry.serverBase = current;
                 ENTRIES.put(id, entry);
             }
-            Component base = entry.serverBase != null
-                    ? entry.serverBase
-                    : PlayerTeam.formatNameForTeam(info.getTeam(), Component.literal(Profiles.name(info.getProfile())));
+            Component base = cleanServerBase(entry.serverBase, info);
             Component decorated = base.copy().append(StatusText.tabSuffix(status));
             entry.decorated = decorated;
             entry.lastStatus = status;
             entry.lastIdleBucket = idleBucket;
             info.setTabListDisplayName(decorated);
         }
+    }
+
+    private static Component cleanServerBase(Component serverBase, PlayerInfo info) {
+        Component fallback = PlayerTeam.formatNameForTeam(info.getTeam(), Component.literal(Profiles.name(info.getProfile())));
+        if (serverBase == null) {
+            return fallback;
+        }
+        String raw = serverBase.getString();
+        String name = Profiles.name(info.getProfile());
+        if (raw.endsWith("]") && raw.startsWith(name + " [")) {
+            return fallback;
+        }
+        return serverBase;
     }
 }

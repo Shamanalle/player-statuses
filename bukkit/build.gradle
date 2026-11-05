@@ -67,7 +67,9 @@ tasks.register('checkPluginJar') {
     doLast {
         def names = new java.util.zip.ZipFile(jarFile.get().asFile).withCloseable { zip -> zip.entries().collect { it.name } }
         for (String required : ['plugin.yml', 'assets/playerstatuses/lang/en_us.json', 'assets/playerstatuses/lang/ru_ru.json',
-                                'com/kasper/playerstatuses/ServerText.class', 'com/kasper/playerstatuses/bukkit/FoliaScheduling.class']) {
+                                'com/kasper/playerstatuses/ServerText.class', 'com/kasper/playerstatuses/ServerDetector.class',
+                                'com/kasper/playerstatuses/bukkit/FoliaScheduling.class',
+                                'com/kasper/playerstatuses/bukkit/BukkitTextDisplays.class']) {
             if (!names.contains(required)) {
                 throw new GradleException("The plugin jar lacks " + required)
             }

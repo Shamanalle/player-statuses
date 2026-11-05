@@ -1,5 +1,6 @@
 package com.kasper.playerstatuses.bukkit;
 
+import org.bukkit.entity.Entity;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /** Bukkit, Spigot, Paper and Purpur: one main thread for everything. */
@@ -14,6 +15,13 @@ final class BukkitScheduling implements Scheduling {
     @Override
     public void everyTick(Runnable tick) {
         plugin.getServer().getScheduler().runTaskTimer(plugin, tick, 1L, 1L);
+    }
+
+    @Override
+    public void runOnEntity(Entity entity, Runnable task) {
+        if (entity != null) {
+            task.run();
+        }
     }
 
     @Override

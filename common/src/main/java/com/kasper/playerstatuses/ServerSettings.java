@@ -16,12 +16,16 @@ public final class ServerSettings extends SettingsFile {
             "For players without the mod the server shows what it can see itself: AFK and open containers");
     public static final Key<Integer> AFK_MINUTES = integer("afk_minutes", 5, 1, 120,
             "Minutes without moving or acting after which a player without the mod counts as AFK");
+    public static final Key<Boolean> VANILLA_OVERHEAD = bool("vanilla_overhead", true,
+            "Show a text line above players' heads for clients without the mod (Minecraft 1.19.4+)");
+    public static final Key<Boolean> VANILLA_TAB_LIST = bool("vanilla_tab_list", true,
+            "Show statuses in the player list (Tab) for clients without the mod");
     public static final Key<String> LANGUAGE = text("language", "en_us",
             "Language of the console's replies; players get replies in their own game language");
 
     public ServerSettings() {
         super("Player Statuses: server settings. Saved changes are picked up within a few seconds;\n"
                 + "/playerstatuses reload reads the file at once.",
-                Arrays.asList(AFK_COMMAND, DETECT_VANILLA, AFK_MINUTES, LANGUAGE));
+                Arrays.asList(AFK_COMMAND, DETECT_VANILLA, AFK_MINUTES, VANILLA_OVERHEAD, VANILLA_TAB_LIST, LANGUAGE));
     }
 }

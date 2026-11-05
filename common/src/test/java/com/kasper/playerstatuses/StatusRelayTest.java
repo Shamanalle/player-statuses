@@ -96,4 +96,60 @@ class StatusRelayTest {
         assertTrue(relay.takeChanged().isEmpty());
         assertEquals(0, relay.moddedCount());
     }
+
+    @Test
+    void serverDetectorTracksIdleTimeAndOpenContainers() {
+        StatusRelay relay = new StatusRelay();
+        ServerSettings settings = new ServerSettings();
+        ServerDetector detector = new ServerDetector();
+
+        detector.onPose(sam, 0.0, 64.0, 0.0, 0.0f, 0.0f, relay, 1000L);
+        detector.updatePlayer(sam, settings, relay, 1000L);
+        assertEquals(PlayerStatus.NONE, relay.current(sam, 1000L));
+
+        // Open a furnace on the server
+        detector.setOpenContainer(sam, ServerDetector.fromBukkitInventoryType("FURNACE"), relay, 2000L);
+        detector.updatePlayer(sam, settings, relay, 2000L);
+        assertEquals(Activity.FURNACE, relay.current(sam, 2000L).activity());
+        assertFalse(relay.current(sam, 2000L).has(StatusFlag.AFK));
+
+        // Wait 5 minutes without acting -> becomes AFK while still in the furnace
+        long afterFiveMin = 2000L + 5 * 60_000L;
+        detector.updatePlayer(sam, settings, relay, afterFiveMin);
+        PlayerStatus s = relay.current(sam, afterFiveMin);
+        assertEquals(Activity.FURNACE, s.activity());
+        assertTrue(s.has(StatusFlag.AFK));
+        assertEquals(300, s.idleSeconds());
+
+        // Move slightly -> clears AFK
+        detector.onPose(sam, 1.0, 64.0, 0.0, 0.0f, 0.0f, relay, afterFiveMin + 1000L);
+        detector.updatePlayer(sam, settings, relay, afterFiveMin + 1000L);
+        assertFalse(relay.current(sam, afterFiveMin + 1000L).has(StatusFlag.AFK));
+
+        // Close container -> back to NONE
+        detector.setOpenContainer(sam, ServerDetector.fromBukkitInventoryType("CRAFTING"), relay, afterFiveMin + 2000L);
+        detector.updatePlayer(sam, settings, relay, afterFiveMin + 2000L);
+        assertEquals(PlayerStatus.NONE, relay.current(sam, afterFiveMin + 2000L));
+    }
+
+    @Test
+    void bukkitInventoryTypesAndAfkCommandDetection() {
+        assertEquals(Activity.NONE, ServerDetector.fromBukkitInventoryType("PLAYER"));
+        assertEquals(Activity.NONE, ServerDetector.fromBukkitInventoryType("CRAFTING"));
+        assertEquals(Activity.CRAFTING, ServerDetector.fromBukkitInventoryType("WORKBENCH"));
+        assertEquals(Activity.CRAFTING, ServerDetector.fromBukkitInventoryType("STONECUTTER"));
+        assertEquals(Activity.CONTAINER, ServerDetector.fromBukkitInventoryType("CHEST"));
+        assertEquals(Activity.CONTAINER, ServerDetector.fromBukkitInventoryType("SHULKER_BOX"));
+        assertEquals(Activity.FURNACE, ServerDetector.fromBukkitInventoryType("BLAST_FURNACE"));
+        assertEquals(Activity.ENCHANTING, ServerDetector.fromBukkitInventoryType("ENCHANTING"));
+        assertEquals(Activity.ANVIL, ServerDetector.fromBukkitInventoryType("ANVIL"));
+        assertEquals(Activity.TRADING, ServerDetector.fromBukkitInventoryType("MERCHANT"));
+        assertEquals(Activity.BOOK, ServerDetector.fromBukkitInventoryType("LECTERN"));
+
+        assertTrue(ServerDetector.isAfkCommand("/afk"));
+        assertTrue(ServerDetector.isAfkCommand("/playerstatuses:afk"));
+        assertTrue(ServerDetector.isAfkCommand("  /AFK  "));
+        assertFalse(ServerDetector.isAfkCommand("/say hello"));
+        assertFalse(ServerDetector.isAfkCommand("/playerstatuses status"));
+    }
 }

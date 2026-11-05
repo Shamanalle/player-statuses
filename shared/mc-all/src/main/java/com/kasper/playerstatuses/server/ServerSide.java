@@ -1,6 +1,8 @@
 package com.kasper.playerstatuses.server;
 
+import com.kasper.playerstatuses.MenuActivities;
 import com.kasper.playerstatuses.PlayerStatus;
+import com.kasper.playerstatuses.ServerDetector;
 import com.kasper.playerstatuses.ServerSettings;
 import com.kasper.playerstatuses.StatusMessages;
 import com.kasper.playerstatuses.StatusRelay;
@@ -12,7 +14,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,7 +31,7 @@ public final class ServerSide {
     private static final int RELOAD_CHECK_TICKS = 40;
 
     private static final StatusServer CORE = new StatusServer();
-    private static final Map<UUID, double[]> LAST_POS = new ConcurrentHashMap<>();
+    private static final ServerDetector DETECTOR = new ServerDetector();
     private static final Set<UUID> LEFT_PLAYERS = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private static Path configDir;
     private static PacketSender sender;
@@ -64,6 +65,10 @@ public final class ServerSide {
         return CORE;
     }
 
+    public static ServerDetector detector() {
+        return DETECTOR;
+    }
+
     /** Handles an incoming {@link StatusMessages#UPDATE} payload from a modded client. */
     public static void onClientMessage(ServerPlayer player, byte[] data) {
         if (player == null || data == null) {
@@ -92,16 +97,9 @@ public final class ServerSide {
 
         for (ServerPlayer p : players) {
             UUID id = p.getUUID();
-            double[] prev = LAST_POS.put(id, new double[]{p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot()});
-            if (prev != null && relay.isManualAfk(id)) {
-                if (Math.abs(p.getX() - prev[0]) > 0.02
-                        || Math.abs(p.getY() - prev[1]) > 0.02
-                        || Math.abs(p.getZ() - prev[2]) > 0.02
-                        || Math.abs(p.getYRot() - prev[3]) > 0.5
-                        || Math.abs(p.getXRot() - prev[4]) > 0.5) {
-                    relay.onActed(id, now);
-                }
-            }
+            DETECTOR.onPose(id, p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot(), relay, now);
+            DETECTOR.setOpenContainer(id, MenuActivities.of(p.containerMenu, false), relay, now);
+            DETECTOR.updatePlayer(id, core.settings(), relay, now);
         }
 
         relay.tick(now);
@@ -123,16 +121,19 @@ public final class ServerSide {
             }
         }
 
+        VanillaBridge.tick(server, core, now);
+
         if (++ticks % RELOAD_CHECK_TICKS == 0) {
             core.reloadIfChanged();
             relay.retainOnline(id -> server.getPlayerList().getPlayer(id) != null);
-            LAST_POS.keySet().removeIf(id -> server.getPlayerList().getPlayer(id) == null);
+            DETECTOR.retainOnline(id -> server.getPlayerList().getPlayer(id) != null);
         }
     }
 
     public static void left(ServerPlayer player) {
         UUID id = player.getUUID();
-        LAST_POS.remove(id);
+        DETECTOR.remove(id);
+        VanillaBridge.removePlayer(id);
         StatusRelay relay = core().relay();
         if (!relay.current(id, System.currentTimeMillis()).isNone()) {
             LEFT_PLAYERS.add(id);

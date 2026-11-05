@@ -73,6 +73,11 @@ public class CommandsGameTest implements FabricClientGameTest {
             }
             context.waitTicks(5);
             context.runOnClient(TestClient::closeScreen);
+
+            // Verify server-side VanillaBridge (TextDisplay + Tab list for vanilla clients)
+            if (!context.computeOnClient(TestClient::verifyVanillaBridge)) {
+                throw new AssertionError("VanillaBridge did not spawn and clean up overhead TextDisplay");
+            }
         }
     }
 
