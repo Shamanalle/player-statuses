@@ -69,4 +69,50 @@ class ClientLogicTest {
         assertTrue(ScreenRules.matches("com.example.Menu$Inner", Arrays.asList("com.example.Menu")));
         assertTrue(ScreenRules.matches("com.example.ui.Menu", Arrays.asList("com.example.")));
     }
+
+    @Test
+    void statusClientCountsIdleAndChecksOverheadVisibility() {
+        StatusClient client = new StatusClient();
+        java.util.UUID id = java.util.UUID.randomUUID();
+        byte[] packet = StatusMessages.statuses(java.util.Collections.singletonList(
+                new StatusMessages.Entry(id, new PlayerStatus(Activity.INVENTORY, StatusFlag.AFK.bit(), 180))
+        ));
+        assertTrue(client.onServerMessage(packet, 10_000L));
+        PlayerStatus atLater = client.statusOf(id, 70_000L);
+        assertEquals(Activity.INVENTORY, atLater.activity());
+        assertTrue(atLater.has(StatusFlag.AFK));
+        assertEquals(240, atLater.idleSeconds());
+
+        assertTrue(client.shouldShowOverhead(atLater, false, false, false, false, false, false, false, 16 * 16));
+        assertFalse(client.shouldShowOverhead(atLater, true, false, false, false, false, false, false, 16 * 16), "F1 hides GUI");
+        assertFalse(client.shouldShowOverhead(atLater, false, false, false, true, false, false, false, 16 * 16), "invisible hides icon");
+        assertFalse(client.shouldShowOverhead(atLater, false, false, false, false, false, true, false, 16 * 16), "riding hides icon");
+        assertFalse(client.shouldShowOverhead(atLater, false, false, false, false, false, false, true, 16 * 16), "sneaking hides icon by default");
+        assertFalse(client.shouldShowOverhead(atLater, false, true, true, false, false, false, false, 0), "self off by default");
+        client.settings().set(ClientSettings.SHOW_OWN, true);
+        assertTrue(client.shouldShowOverhead(atLater, false, true, true, false, false, false, false, 0), "self in 3rd person when enabled");
+        assertFalse(client.shouldShowOverhead(atLater, false, true, false, false, false, false, false, 0), "never in 1st person");
+    }
+
+    @Test
+    void statusIconsRenderAllActivitiesAndFlags() {
+        for (Activity a : Activity.values()) {
+            assertNotNull(StatusIcon.sprite(a));
+        }
+        for (StatusFlag f : StatusFlag.values()) {
+            assertNotNull(StatusIcon.sprite(f));
+        }
+        java.util.List<int[]> rects = new java.util.ArrayList<>();
+        PlayerStatus status = PlayerStatus.of(Activity.TYPING, StatusFlag.AFK, StatusFlag.UNFOCUSED);
+        StatusIcon.CardLayout layout = StatusIcon.drawCard(
+                (x0, y0, x1, y1, argb) -> rects.add(new int[]{(int) x0, (int) y0, (int) x1, (int) y1, argb}),
+                status,
+                36,
+                90,
+                500L
+        );
+        assertTrue(layout.width() > 50);
+        assertEquals(2, layout.extraFlags().size());
+        assertFalse(rects.isEmpty());
+    }
 }

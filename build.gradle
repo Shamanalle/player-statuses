@@ -90,8 +90,11 @@ tasks.register('fabricUniversalMetadata') {
     doLast {
         def prefix = 'com.kasper.playerstatuses.'
         def metas = fabricBands.collect { band ->
-            def json = zipTree(bandJar(band)).matching { include 'fabric.mod.json' }.singleFile
-            [band: band, json: new groovy.json.JsonSlurper().parse(json)]
+            def tree = zipTree(bandJar(band))
+            def json = tree.matching { include 'fabric.mod.json' }.singleFile
+            def mixinsFiles = tree.matching { include 'playerstatuses.mixins.json' }.files
+            def mixinsJson = mixinsFiles ? new groovy.json.JsonSlurper().parse(mixinsFiles.first()) : [:]
+            [band: band, json: new groovy.json.JsonSlurper().parse(json), mixins: mixinsJson]
         }
         def newest = metas.last().json
         def entrypoints = [:]
@@ -130,11 +133,27 @@ tasks.register('fabricUniversalMetadata') {
             table << "${id}.minecraft=" << escape(range(m.json.depends.minecraft)) << '\n'
             table << "${id}.depends=" << depends.keySet().join(',') << '\n'
             depends.each { k, v -> table << "${id}.depends.${k}=" << escape(range(v)) << '\n' }
+            if (m.mixins.mixins) {
+                table << "${id}.mixins.common=" << m.mixins.mixins.join(',') << '\n'
+            }
+            if (m.mixins.client) {
+                table << "${id}.mixins.client=" << m.mixins.client.join(',') << '\n'
+            }
+            if (m.mixins.server) {
+                table << "${id}.mixins.server=" << m.mixins.server.join(',') << '\n'
+            }
         }
         def dir = outDir.get().asFile
         project.delete(dir)
         dir.mkdirs()
         new File(dir, 'fabric.mod.json').text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(merged)) + '\n'
+        new File(dir, 'playerstatuses.mixins.json').text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+                required : true,
+                minVersion: '0.8',
+                package  : 'com.kasper.playerstatuses.b',
+                plugin   : 'com.kasper.playerstatuses.BandMixinPlugin',
+                injectors: [defaultRequire: 1],
+        ])) + '\n'
         new File(dir, 'playerstatuses-bands.properties').text = table.toString()
     }
 }

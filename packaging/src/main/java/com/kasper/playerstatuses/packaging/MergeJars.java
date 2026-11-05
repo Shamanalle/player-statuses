@@ -68,8 +68,8 @@ public final class MergeJars {
 
     /** Band files that the base replaces: each band has its own, the merged jar one. */
     private static final Set<String> METADATA = Set.of(
-            "META-INF/MANIFEST.MF", "fabric.mod.json", "quilt.mod.json", "pack.mcmeta",
-            "META-INF/mods.toml", "META-INF/neoforge.mods.toml");
+            "META-INF/MANIFEST.MF", "fabric.mod.json", "quilt.mod.json", "playerstatuses.mixins.json",
+            "pack.mcmeta", "META-INF/mods.toml", "META-INF/neoforge.mods.toml");
 
     private static final Set<String> STRIPPED = Set.of(
             "Lnet/minecraftforge/fml/common/Mod;", "Lnet/neoforged/fml/common/Mod;");

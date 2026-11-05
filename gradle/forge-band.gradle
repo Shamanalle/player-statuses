@@ -27,9 +27,9 @@ if (!minecraftVersion.startsWith('26')) {
 
 repositories {
     minecraft.mavenizer(it)
+    mavenCentral()
     maven fg.forgeMaven
     maven fg.minecraftLibsMaven
-    mavenCentral()
 }
 
 apply from: "${rootDir}/gradle/shared-sources.gradle"

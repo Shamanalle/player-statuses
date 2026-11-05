@@ -6,5 +6,5 @@ plugins {
 // Forge, Minecraft 26.x (see gradle/forge-band.gradle)
 ext.forgeTarget = 'mc26.x'
 ext.forgeVersion = 'forge26_version'
-ext.forgeShared = ['shared/forge-bus7', 'shared/mc-1.21.11-up', 'shared/mc-all']
+ext.forgeShared = ['shared/forge-bus7', 'shared/mc-26', 'shared/mc-1.21.11-up', 'shared/mc-all']
 apply from: "${rootDir}/gradle/forge-band.gradle"

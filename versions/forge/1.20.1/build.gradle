@@ -25,7 +25,7 @@ legacyForge {
 }
 
 apply from: "${rootDir}/gradle/shared-sources.gradle"
-useShared(['shared/mc-1.20.1', 'shared/mc-all'])
+useShared(['shared/mc-1.20.1', 'shared/mc-all'], ['com/kasper/playerstatuses/network/StatusPayload.java'])
 
 dependencies {
     implementation project(':common')

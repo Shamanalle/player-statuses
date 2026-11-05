@@ -10,9 +10,11 @@ repositories {
 }
 
 sourceSets {
-    fabric
-    // Forge's and NeoForge's annotations and constructor types, only to compile against: the real ones come with the loader
+    // Forge's, NeoForge's and Mixin's annotations and interfaces, only to compile against: the real ones come with the loader
     stubs
+    fabric {
+        compileClasspath += stubs.output
+    }
     forge {
         compileClasspath += stubs.output
     }

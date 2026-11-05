@@ -192,6 +192,31 @@ public final class StatusRelay {
         }
     }
 
+    /** Entries for all players whose status changed since the last call, ready for {@link StatusMessages#statusesSplit}. */
+    public List<StatusMessages.Entry> takeChangedEntries(long now) {
+        List<UUID> ids = takeChanged();
+        if (ids.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<StatusMessages.Entry> out = new ArrayList<>(ids.size());
+        for (UUID id : ids) {
+            out.add(new StatusMessages.Entry(id, current(id, now)));
+        }
+        return out;
+    }
+
+    /** Current non-empty statuses of all known players, to send to a client that just joined with the mod. */
+    public List<StatusMessages.Entry> activeEntries(long now) {
+        List<StatusMessages.Entry> out = new ArrayList<>();
+        for (UUID id : entries.keySet()) {
+            PlayerStatus s = current(id, now);
+            if (!s.isNone()) {
+                out.add(new StatusMessages.Entry(id, s));
+            }
+        }
+        return out;
+    }
+
     /** Players the relay knows. */
     public Set<UUID> players() {
         return entries.keySet();

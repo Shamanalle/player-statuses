@@ -39,14 +39,14 @@ public final class BandAdapter implements LanguageAdapter {
         }
     }
 
-    private static synchronized String band() throws LanguageAdapterException {
+    static synchronized String band() throws LanguageAdapterException {
         if (band == null) {
             band = pick(load());
         }
         return band;
     }
 
-    private static Properties load() throws LanguageAdapterException {
+    static Properties load() throws LanguageAdapterException {
         Properties table = new Properties();
         try (InputStream in = BandAdapter.class.getResourceAsStream("/playerstatuses-bands.properties")) {
             if (in == null) {

@@ -1,17 +1,20 @@
 package com.kasper.playerstatuses.gametest;
 
+import com.kasper.playerstatuses.Activity;
+import com.kasper.playerstatuses.PlayerStatus;
+import com.kasper.playerstatuses.StatusFlag;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Runs {@code /playerstatuses} and {@code /afk} as a player in a real client, in English and in
- * Russian, and takes a screenshot of the chat after each (uploaded by CI). Fails on a text key that
- * was not translated, on a missing reply and on an unknown command.
+ * Russian, spawns a second player in front of the camera to verify overhead status cards and Tab
+ * list indicators, and takes 3840x2160 {@code store-*} screenshots.
  */
 public class CommandsGameTest implements FabricClientGameTest {
 
@@ -34,6 +37,49 @@ public class CommandsGameTest implements FabricClientGameTest {
                 run(context, language, "afk", "afk", language.equals("en_us") ? "You are AFK now" : "Теперь вы АФК");
                 run(context, language, "back", "afk", language.equals("en_us") ? "Welcome back" : "С возвращением");
             }
+
+            // Switch back to English for store screenshots and visual / Tab assertions
+            context.runOnClient(client -> TestClient.language(client, "en_us"));
+            context.waitTicks(5);
+            context.waitFor(TestClient::loaded, 1200);
+            context.waitTicks(50);
+            context.runOnClient(client -> {
+                TestClient.clearChat(client);
+                TestClient.spawnFakePlayer(client);
+            });
+            context.getInput().resizeWindow(3840, 2160);
+            context.waitTicks(10);
+
+            storeScreenshot(context, "store-typing", new PlayerStatus(Activity.TYPING, 0, 0));
+            storeScreenshot(context, "store-inventory", new PlayerStatus(Activity.INVENTORY, 0, 0));
+            storeScreenshot(context, "store-container", new PlayerStatus(Activity.CONTAINER, 0, 0));
+            storeScreenshot(context, "store-crafting", new PlayerStatus(Activity.CRAFTING, 0, 0));
+            storeScreenshot(context, "store-afk", new PlayerStatus(Activity.NONE, StatusFlag.AFK.bit() | StatusFlag.UNFOCUSED.bit(), 120));
+
+            // Verify Tab list decoration
+            String tab = context.computeOnClient(client -> {
+                TestClient.setOwnStatus(client, new PlayerStatus(Activity.CRAFTING, StatusFlag.AFK.bit(), 120));
+                return TestClient.ownTabName(client);
+            });
+            if (!tab.contains("Crafting") || !tab.contains("2m") || tab.contains("gui.playerstatuses.")) {
+                throw new AssertionError("Unexpected Tab list display name: " + tab);
+            }
+            context.runOnClient(client -> TestClient.setOwnStatus(client, PlayerStatus.NONE));
+        }
+    }
+
+    private static void storeScreenshot(ClientGameTestContext context, String name, PlayerStatus status) {
+        int before = context.computeOnClient(client -> {
+            TestClient.setFakeStatus(status);
+            return TestClient.overheadDraws();
+        });
+        context.waitTicks(5);
+        context.takeScreenshot(
+            TestScreenshotOptions.of(name).disableCounterPrefix().withSize(3840, 2160)
+        );
+        int after = context.computeOnClient(client -> TestClient.overheadDraws());
+        if (after <= before) {
+            throw new AssertionError("Overhead status card was not rendered for " + name + " (" + status + ")");
         }
     }
 

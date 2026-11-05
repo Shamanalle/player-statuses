@@ -18,8 +18,14 @@
   "entrypoints": {
     "main": [
       "com.kasper.playerstatuses.PlayerStatusesFabric"
+    ],
+    "client": [
+      "com.kasper.playerstatuses.PlayerStatusesFabricClient"
     ]
   },
+  "mixins": [
+    "playerstatuses.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=${fabricloader}",
     "fabric-api": "*",
