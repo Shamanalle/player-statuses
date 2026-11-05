@@ -28,22 +28,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Check the network retry
         run: bash .github/scripts/net-retry-selftest.sh
       - name: Set up JDK 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: '25'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
       - name: Build
         run: |
           chmod +x gradlew
           bash .github/scripts/net-retry.sh -- ./gradlew build -x test --no-daemon
       - name: Upload jars
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ingame-jars
           path: build/libs/*.jar
@@ -91,14 +91,14 @@ jobs:
           - { loader: folia, mc: 'latest', jar: 'player-statuses-bukkit-*.jar', java: '25' }
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: ${{ matrix.java }}
       - name: Download jars
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ingame-jars
           path: jars
@@ -113,7 +113,7 @@ jobs:
           bash .github/scripts/server-smoke.sh "${{ matrix.loader }}" "${{ matrix.mc }}" "${jar}" "${version}"
       - name: Upload the server log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: server-log-${{ matrix.loader }}-${{ matrix.mc }}${{ matrix.label && format('-{0}', matrix.label) || '' }}
           path: ${{ runner.temp }}/server-*/*.log
@@ -131,17 +131,17 @@ jobs:
           - { module: fabric-26, dir: versions/fabric/26, mc: '26.3' }
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       # Gradle runs on 25; the 1.21.11 test client runs on 21 (see gradle/fabric-band.gradle)
       - name: Set up JDK 21 and 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: |
             21
             25
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
       # Software OpenGL (Mesa llvmpipe). 26.x opens its window through SDL3, which finds no matching
       # GLX visual on Xvfb; through EGL it gets OpenGL 4.5. Versions before 26 use GLFW and ignore this
       - name: Software graphics
@@ -162,7 +162,7 @@ jobs:
             --no-daemon --console=plain -Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64,JAVA_HOME_25_X64
       - name: Upload screenshots and logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: client-${{ matrix.module }}
           path: |
