@@ -39,6 +39,9 @@ fi
 
 reason=$(grep -Eo "${net_failure_pattern}" "${log}" | head -1)
 echo "::warning title=Network failure::${reason}. Trying once more, Maven Central through its Google mirror"
+if grep -q 'zip END header not found' "${log}"; then
+  rm -rf "${GRADLE_USER_HOME:-${HOME}/.gradle}/caches/minecraftforge/forgegradle/mavenizer" .gradle/mavenizer
+fi
 init_dir="${GRADLE_USER_HOME:-${HOME}/.gradle}/init.d"
 mirror="${init_dir}/playerstatuses-maven-mirror.gradle"
 mkdir -p "${init_dir}"

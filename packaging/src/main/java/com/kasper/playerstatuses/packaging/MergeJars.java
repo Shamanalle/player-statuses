@@ -231,7 +231,11 @@ public final class MergeJars {
         Map<String, String> moved = new HashMap<>();
         for (Map.Entry<String, byte[]> e : glue.entrySet()) {
             glueInfo.put(e.getKey(), info(e.getValue()));
-            moved.put(e.getKey(), ROOT + "b/" + id + "/" + e.getKey().substring(ROOT.length()));
+            String sub = e.getKey().substring(ROOT.length());
+            String dest = sub.startsWith("mixin/")
+                    ? ROOT + "mixin/" + id + "/" + sub.substring("mixin/".length())
+                    : ROOT + "b/" + id + "/" + sub;
+            moved.put(e.getKey(), dest);
         }
         SimpleRemapper remapper = new SimpleRemapper(Opcodes.ASM9, moved);
         int highest = 0;

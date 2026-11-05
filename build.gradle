@@ -150,7 +150,7 @@ tasks.register('fabricUniversalMetadata') {
         new File(dir, 'playerstatuses.mixins.json').text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
                 required : true,
                 minVersion: '0.8',
-                package  : 'com.kasper.playerstatuses.b',
+                package  : 'com.kasper.playerstatuses.mixin',
                 plugin   : 'com.kasper.playerstatuses.BandMixinPlugin',
                 injectors: [defaultRequire: 1],
         ])) + '\n'

@@ -13,7 +13,7 @@ import java.util.Properties;
 import java.util.Set;
 
 /**
- * Selects only the running Minecraft band's mixins from {@code com.kasper.playerstatuses.b.<band>.mixin},
+ * Selects only the running Minecraft band's mixins from {@code com.kasper.playerstatuses.mixin.<band>},
  * so Mixin never parses class files of newer Java versions on older JVMs.
  */
 public final class BandMixinPlugin implements IMixinConfigPlugin {
@@ -61,7 +61,7 @@ public final class BandMixinPlugin implements IMixinConfigPlugin {
         for (String item : csv.split(",")) {
             String trimmed = item.trim();
             if (!trimmed.isEmpty()) {
-                out.add(id + ".mixin." + trimmed);
+                out.add(id + "." + trimmed);
             }
         }
     }
