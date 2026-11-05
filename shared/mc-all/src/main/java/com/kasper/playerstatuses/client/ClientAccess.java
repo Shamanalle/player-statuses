@@ -14,6 +14,12 @@ public final class ClientAccess {
         return mc.screen;
     }
 
+    public static void setScreen(Minecraft mc, Screen screen) {
+        if (mc != null) {
+            mc.setScreen(screen);
+        }
+    }
+
     public static boolean hideGui(Minecraft mc) {
         return mc.options.hideGui;
     }

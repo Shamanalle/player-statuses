@@ -15,9 +15,13 @@ repositories {
 apply from: "${rootDir}/gradle/jabel.gradle"
 
 sourceSets {
+    stubs {
+        java.srcDir "${rootDir}/common/src/stubs/java"
+    }
     main {
         java.srcDir "${rootDir}/common/src/main/java"
         resources.srcDir "${rootDir}/common/src/main/resources"
+        compileClasspath += stubs.output
     }
 }
 

@@ -63,7 +63,7 @@ public final class PlayerStatusesNeoForge {
             }
         });
         if (dist == Dist.CLIENT) {
-            NeoForgeClient.init(FMLPaths.CONFIGDIR.get());
+            NeoForgeClient.init(container, FMLPaths.CONFIGDIR.get());
         }
     }
 }

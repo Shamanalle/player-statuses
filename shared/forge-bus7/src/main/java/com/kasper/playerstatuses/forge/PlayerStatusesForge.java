@@ -77,7 +77,7 @@ public final class PlayerStatusesForge {
             }
         });
         if (FMLEnvironment.dist == Dist.CLIENT) {
-            ForgeClient.init(FMLPaths.CONFIGDIR.get(), CHANNEL);
+            ForgeClient.init(context, FMLPaths.CONFIGDIR.get(), CHANNEL);
         }
     }
 }

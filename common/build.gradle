@@ -12,6 +12,17 @@ repositories {
     mavenCentral()
 }
 
+sourceSets {
+    stubs
+    main {
+        compileClasspath += stubs.output
+    }
+    test {
+        compileClasspath += stubs.output
+        runtimeClasspath += stubs.output
+    }
+}
+
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'

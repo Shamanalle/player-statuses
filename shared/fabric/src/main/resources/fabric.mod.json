@@ -21,6 +21,12 @@
     ],
     "client": [
       "com.kasper.playerstatuses.PlayerStatusesFabricClient"
+    ],
+    "modmenu": [
+      "com.kasper.playerstatuses.PlayerStatusesModMenu"
+    ],
+    "voicechat": [
+      "com.kasper.playerstatuses.PlayerStatusesVoiceChatPlugin"
     ]
   },
   "mixins": [

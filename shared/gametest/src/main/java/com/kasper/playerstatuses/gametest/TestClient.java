@@ -1,8 +1,12 @@
 package com.kasper.playerstatuses.gametest;
 
+import com.kasper.playerstatuses.Activity;
+import com.kasper.playerstatuses.ClientSettings;
 import com.kasper.playerstatuses.PlayerStatus;
 import com.kasper.playerstatuses.client.ClientAccess;
 import com.kasper.playerstatuses.client.ClientSide;
+import com.kasper.playerstatuses.client.ScreenDetector;
+import com.kasper.playerstatuses.client.SettingsScreen;
 import com.kasper.playerstatuses.client.TabListDecorator;
 import com.mojang.authlib.GameProfile;
 import java.util.UUID;
@@ -120,5 +124,14 @@ final class TestClient {
 
     static int overheadDraws() {
         return ClientSide.overheadDraws();
+    }
+
+    static Activity openSettingsScreen(Minecraft client) {
+        ClientAccess.setScreen(client, new SettingsScreen(null));
+        return ScreenDetector.detect(client, ClientSide.core().settings().get(ClientSettings.IGNORED_SCREENS));
+    }
+
+    static void closeScreen(Minecraft client) {
+        ClientAccess.setScreen(client, null);
     }
 }

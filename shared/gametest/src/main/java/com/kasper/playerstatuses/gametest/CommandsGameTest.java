@@ -65,6 +65,14 @@ public class CommandsGameTest implements FabricClientGameTest {
                 throw new AssertionError("Unexpected Tab list display name: " + tab);
             }
             context.runOnClient(client -> TestClient.setOwnStatus(client, PlayerStatus.NONE));
+
+            // Verify client SettingsScreen renders and is detected as Activity.SETTINGS
+            Activity screenActivity = context.computeOnClient(TestClient::openSettingsScreen);
+            if (screenActivity != Activity.SETTINGS) {
+                throw new AssertionError("Expected Activity.SETTINGS for SettingsScreen, got " + screenActivity);
+            }
+            context.waitTicks(5);
+            context.runOnClient(TestClient::closeScreen);
         }
     }
 

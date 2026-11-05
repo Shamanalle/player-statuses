@@ -30,9 +30,16 @@ public final class BandAdapter implements LanguageAdapter {
 
     @Override
     public <T> T create(ModContainer mod, String value, Class<T> type) throws LanguageAdapterException {
-        String name = PACKAGE + band() + "." + value;
+        String b = band();
+        String name = PACKAGE + b + "." + value;
         try {
-            Class<?> cls = Class.forName(name, true, BandAdapter.class.getClassLoader());
+            Class<?> cls;
+            try {
+                cls = Class.forName(name, true, BandAdapter.class.getClassLoader());
+            } catch (ClassNotFoundException e) {
+                name = "com.kasper.playerstatuses." + value;
+                cls = Class.forName(name, true, BandAdapter.class.getClassLoader());
+            }
             return type.cast(cls.getDeclaredConstructor().newInstance());
         } catch (ReflectiveOperationException | ClassCastException | LinkageError e) {
             throw new LanguageAdapterException("Player Statuses: cannot create " + name + " as " + type.getName(), e);

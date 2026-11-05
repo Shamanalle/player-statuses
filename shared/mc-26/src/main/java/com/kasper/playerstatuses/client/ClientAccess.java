@@ -19,6 +19,8 @@ public final class ClientAccess {
 
     private static final Field MC_SCREEN_FIELD = findField(Minecraft.class, "screen");
     private static final Method GUI_SCREEN_METHOD = findMethod(Gui.class, "screen");
+    private static final Method GUI_SET_SCREEN_METHOD = findMethodWithParams(Gui.class, "setScreen", Screen.class);
+    private static final Method MC_SET_SCREEN_METHOD = findMethodWithParams(Minecraft.class, "setScreen", Screen.class);
     private static final Field OPTIONS_HIDE_GUI_FIELD = findField(Options.class, "hideGui");
     private static final Field GUI_HUD_FIELD = findField(Gui.class, "hud");
     private static final Method HUD_IS_HIDDEN_METHOD = GUI_HUD_FIELD == null
@@ -42,6 +44,22 @@ public final class ClientAccess {
         } catch (ReflectiveOperationException ignored) {
         }
         return null;
+    }
+
+    public static void setScreen(Minecraft mc, Screen screen) {
+        if (mc == null) {
+            return;
+        }
+        try {
+            if (GUI_SET_SCREEN_METHOD != null && mc.gui != null) {
+                GUI_SET_SCREEN_METHOD.invoke(mc.gui, screen);
+                return;
+            }
+            if (MC_SET_SCREEN_METHOD != null) {
+                MC_SET_SCREEN_METHOD.invoke(mc, screen);
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
     }
 
     public static boolean hideGui(Minecraft mc) {
@@ -109,6 +127,16 @@ public final class ClientAccess {
     private static Method findMethod(Class<?> owner, String name) {
         try {
             Method m = owner.getMethod(name);
+            m.setAccessible(true);
+            return m;
+        } catch (ReflectiveOperationException e) {
+            return null;
+        }
+    }
+
+    private static Method findMethodWithParams(Class<?> owner, String name, Class<?>... params) {
+        try {
+            Method m = owner.getMethod(name, params);
             m.setAccessible(true);
             return m;
         } catch (ReflectiveOperationException e) {

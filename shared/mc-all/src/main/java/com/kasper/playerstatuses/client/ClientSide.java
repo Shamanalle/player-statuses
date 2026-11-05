@@ -4,6 +4,7 @@ import com.kasper.playerstatuses.Activity;
 import com.kasper.playerstatuses.ClientSettings;
 import com.kasper.playerstatuses.PlayerStatus;
 import com.kasper.playerstatuses.StatusClient;
+import com.kasper.playerstatuses.VoiceChatState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.world.entity.player.Player;
@@ -83,7 +84,13 @@ public final class ClientSide {
 
         Activity activity = ScreenDetector.detect(mc, client.settings().get(ClientSettings.IGNORED_SCREENS));
         boolean unfocused = !mc.isWindowActive();
-        PlayerStatus own = client.composeOwn(activity, unfocused, false, false, now);
+        PlayerStatus own = client.composeOwn(
+                activity,
+                unfocused,
+                VoiceChatState.isMicOff(),
+                VoiceChatState.isSoundOff(),
+                now
+        );
         client.setStatus(mc.player.getUUID(), own, now);
 
         byte[] packet = client.pollSend(own, now);
@@ -153,6 +160,29 @@ public final class ClientSide {
             return PlayerStatus.NONE;
         }
         return status;
+    }
+
+    /**
+     * Returns the status to pose {@code target}'s arms for, or {@link PlayerStatus#NONE} if arm poses
+     * are disabled or {@code target} should not be posed.
+     */
+    public static PlayerStatus statusForArmPose(Player target) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null || mc.player == null || target == null) {
+            return PlayerStatus.NONE;
+        }
+        StatusClient client = core();
+        if (!client.settings().get(ClientSettings.ARM_POSES)) {
+            return PlayerStatus.NONE;
+        }
+        boolean isSelf = target == mc.player || target.getUUID().equals(mc.player.getUUID());
+        if (isSelf && mc.options.getCameraType().isFirstPerson()) {
+            return PlayerStatus.NONE;
+        }
+        if ((!isSelf && target.isInvisibleTo(mc.player)) || target.isSpectator()) {
+            return PlayerStatus.NONE;
+        }
+        return client.statusOf(target.getUUID(), System.currentTimeMillis());
     }
 
     public static void markOverheadDrawn() {

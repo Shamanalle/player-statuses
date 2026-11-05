@@ -67,6 +67,7 @@ processResources {
 
 jar {
     from project(':common').sourceSets.main.output
+    exclude 'com/terraformersmc/**'
 }
 
 if (fabricRemap) {

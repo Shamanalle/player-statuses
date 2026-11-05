@@ -115,4 +115,102 @@ class ClientLogicTest {
         assertEquals(2, layout.extraFlags().size());
         assertFalse(rects.isEmpty());
     }
+
+    @Test
+    void armPosesForActivitiesAndHandedness() {
+        assertTrue(StatusArmPose.forStatus(PlayerStatus.NONE, true, 0f).isDefault());
+        assertTrue(StatusArmPose.forStatus(PlayerStatus.of(Activity.LOADING), true, 0f).isDefault());
+
+        StatusArmPose.Pair inv = StatusArmPose.forStatus(PlayerStatus.of(Activity.INVENTORY), true, 0f);
+        assertEquals(StatusArmPose.HIGH, inv.left());
+        assertEquals(StatusArmPose.HIGH, inv.right());
+
+        StatusArmPose.Pair chestRight = StatusArmPose.forStatus(PlayerStatus.of(Activity.CONTAINER), true, 0f);
+        assertEquals(StatusArmPose.LOW, chestRight.left());
+        assertEquals(StatusArmPose.HIGH, chestRight.right());
+
+        StatusArmPose.Pair chestLeft = StatusArmPose.forStatus(PlayerStatus.of(Activity.CONTAINER), false, 0f);
+        assertEquals(StatusArmPose.HIGH, chestLeft.left());
+        assertEquals(StatusArmPose.LOW, chestLeft.right());
+
+        // Typing alternates every 2 ticks unless AFK or unfocused
+        StatusArmPose.Pair t0 = StatusArmPose.forStatus(PlayerStatus.of(Activity.TYPING), true, 0f);
+        StatusArmPose.Pair t2 = StatusArmPose.forStatus(PlayerStatus.of(Activity.TYPING), true, 2f);
+        assertNotEquals(t0.right(), t2.right());
+        assertNotEquals(t0.left(), t2.left());
+
+        StatusArmPose.Pair tAfk0 = StatusArmPose.forStatus(PlayerStatus.of(Activity.TYPING, StatusFlag.AFK), true, 0f);
+        StatusArmPose.Pair tAfk2 = StatusArmPose.forStatus(PlayerStatus.of(Activity.TYPING, StatusFlag.AFK), true, 2f);
+        assertEquals(tAfk0.right(), tAfk2.right());
+    }
+
+    @Test
+    void simpleVoiceChatPluginUpdatesVoiceChatState() {
+        PlayerStatusesVoiceChatPlugin plugin = new PlayerStatusesVoiceChatPlugin();
+        assertEquals("playerstatuses", plugin.getPluginId());
+        boolean[] state = {false, false, false}; // muted, disabled, disconnected
+        de.maxhenkel.voicechat.api.VoicechatClientApi api = new de.maxhenkel.voicechat.api.VoicechatClientApi() {
+            @Override
+            public boolean isMuted() {
+                return state[0];
+            }
+
+            @Override
+            public boolean isDisabled() {
+                return state[1];
+            }
+
+            @Override
+            public boolean isDisconnected() {
+                return state[2];
+            }
+        };
+        java.util.Map<Class<?>, java.util.function.Consumer<Object>> handlers = new java.util.HashMap<>();
+        plugin.initialize(api);
+        plugin.registerEvents(new de.maxhenkel.voicechat.api.events.EventRegistration() {
+            @Override
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            public <T extends de.maxhenkel.voicechat.api.events.Event> void registerEvent(
+                    Class<T> eventClass,
+                    java.util.function.Consumer<T> onEvent,
+                    int priority
+            ) {
+                handlers.put(eventClass, (java.util.function.Consumer) onEvent);
+            }
+        });
+
+        // Not connected yet: no flags
+        state[0] = true;
+        assertFalse(VoiceChatState.isMicOff());
+        assertFalse(VoiceChatState.isSoundOff());
+
+        // Connect
+        handlers.get(de.maxhenkel.voicechat.api.events.ClientVoicechatConnectionEvent.class).accept(
+                new de.maxhenkel.voicechat.api.events.ClientVoicechatConnectionEvent() {
+                    @Override
+                    public boolean isConnected() {
+                        return true;
+                    }
+
+                    @Override
+                    public de.maxhenkel.voicechat.api.VoicechatClientApi getVoicechat() {
+                        return api;
+                    }
+                }
+        );
+        assertTrue(VoiceChatState.isMicOff());
+        assertFalse(VoiceChatState.isSoundOff());
+
+        // Disable sound -> both micOff and soundOff
+        state[0] = false;
+        state[1] = true;
+        assertTrue(VoiceChatState.isMicOff());
+        assertTrue(VoiceChatState.isSoundOff());
+
+        // Disconnect -> both false
+        state[2] = true;
+        assertFalse(VoiceChatState.isMicOff());
+        assertFalse(VoiceChatState.isSoundOff());
+        VoiceChatState.bind(null, null);
+    }
 }
