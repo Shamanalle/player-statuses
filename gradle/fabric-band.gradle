@@ -114,10 +114,13 @@ if (project.hasProperty('fabricGametest') && fabricGametest) {
         }
     }
 
-    // Minecraft 1.21.x runs on Java 21 (the newest Java its Mixin knows); 26.x on 25
+    // Minecraft 1.21.x runs on Java 21 (the newest Java its Mixin knows); 26.x on 25.
+    // On 1.21.11 Fabric's NetworkSynchronizer blocks before waitUntilNextTick(), which eats the server's
+    // 50 ms tick budget before chunk tasks can run and stalls world loading (Fabric dropped it in 26.1)
     tasks.matching { it.name == 'runClientGameTest' }.configureEach {
         javaLauncher = javaToolchains.launcherFor {
             languageVersion = JavaLanguageVersion.of(fabricJava as int)
         }
+        jvmArgs '-Dfabric.client.gametest.disableNetworkSynchronizer=true'
     }
 }

@@ -2,6 +2,7 @@ package com.kasper.playerstatuses.gametest;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
+import net.minecraft.world.level.gamerules.GameRules;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -28,6 +29,7 @@ final class TestClient {
     /** A world where the player may use commands (cheats on). */
     static void allowCommands(WorldCreationUiState settings) {
         settings.setAllowCommands(true);
+        settings.getGameRules().set(GameRules.RESPAWN_RADIUS, 0, null);
     }
 
     /** Sends a command as if typed in chat, without the slash. */
