@@ -1,0 +1,7 @@
+{
+  "pack": {
+    "description": "Player Statuses",
+    "pack_format": 18,
+    "supported_formats": [18, 26]
+  }
+}

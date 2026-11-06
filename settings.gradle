@@ -21,9 +21,9 @@ include "common-j8"
 // The Minecraft modules live in versions/<loader>/<band> and keep the project name <loader>-<band>
 // (:fabric-1.21.11 is versions/fabric/1.21.11). Which Minecraft versions a band covers is in gradle.properties.
 def bands = [
-        fabric  : ['1.21.10', '1.21.11', '26'],
-        forge   : ['1.20.1', '1.21.10', '1.21.11', '26'],
-        neoforge: ['1.21.1', '1.21.10', '1.21.11', '26'],
+        fabric  : ['1.16', '1.17', '1.18', '1.19', '1.19.4', '1.20.1', '1.20.4', '1.20.6', '1.21.1', '1.21.8', '1.21.10', '1.21.11', '26'],
+        forge   : ['1.17', '1.18', '1.19', '1.19.4', '1.20.1', '1.20.6', '1.21.1', '1.21.5', '1.21.8', '1.21.10', '1.21.11', '26'],
+        neoforge: ['1.20.6', '1.21.1', '1.21.5', '1.21.8', '1.21.10', '1.21.11', '26'],
 ]
 bands.each { loader, list ->
     list.each { band ->

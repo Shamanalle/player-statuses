@@ -9,6 +9,7 @@ const social = pathToFileURL(path.join(__dirname, "social.html")).href;
 const pictures = [
   { file: "docs/images/social-preview.png", h: 640 },
   { file: "docs/images/banner.png", h: 400 },
+  { file: "docs/images/gallery/cover.png", h: 720 },
 ];
 
 (async () => {

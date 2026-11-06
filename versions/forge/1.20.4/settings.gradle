@@ -1,0 +1,16 @@
+// Forge 1.20.2 - 1.20.4 is built on its own, with Gradle 8 and ForgeGradle 6: on those versions the
+// game runs with Forge's SRG names, which only ForgeGradle 6 remaps to, and ForgeGradle 6 cannot share
+// a build with the ForgeGradle 7 and ModDevGradle modules of the main one. The main build runs this one
+// (buildLegacy in the root build.gradle) and collects its jar.
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'player-statuses-forge-1.20.4'

@@ -26,7 +26,7 @@ Why: both stores search the name and the summary first, and Modrinth has no free
 
 **First paragraph of the description** (used until the full pages exist):
 
-> See what other players are up to. A small icon above a player's head shows when they are typing, have their inventory or a chest open, are AFK (with a timer) or have tabbed out, and the same shows in the player list. The text you type is never sent, and every kind of status has its own privacy switch. An alternative to What Are They Up To (WATUT) for 1.20.1 – 26.3 on Fabric, Forge and NeoForge, and also for vanilla clients via the server.
+> See what other players are up to. A small icon above a player's head shows when they are typing, have their inventory or a chest open, are AFK (with a timer) or have tabbed out, and the same shows in the player list. The text you type is never sent, and every kind of status has its own privacy switch. An alternative to What Are They Up To (WATUT) for 1.16.5 – 26.3 on Fabric, Forge and NeoForge, and also for vanilla clients via the server.
 
 ### Categories
 

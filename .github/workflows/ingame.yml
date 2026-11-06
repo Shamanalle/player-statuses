@@ -59,29 +59,34 @@ jobs:
       matrix:
         include:
           # One jar for every Fabric version, so each job also checks that it picks the right band
-          - { loader: fabric, mc: '1.21.9', jar: 'player-statuses-fabric-*+mc1.21.9-26.x.jar', java: '21' }
-          - { loader: fabric, mc: '1.21.10', jar: 'player-statuses-fabric-*+mc1.21.9-26.x.jar', java: '21' }
-          - { loader: fabric, mc: '1.21.11', jar: 'player-statuses-fabric-*+mc1.21.9-26.x.jar', java: '21' }
-          - { loader: fabric, mc: '26.1', jar: 'player-statuses-fabric-*+mc1.21.9-26.x.jar', java: '25' }
-          - { loader: fabric, mc: '26.3', jar: 'player-statuses-fabric-*+mc1.21.9-26.x.jar', java: '25' }
+          - { loader: fabric, mc: '1.16.5', jar: 'player-statuses-fabric-*+mc1.16.5-26.x.jar', java: '8' }
+          - { loader: fabric, mc: '1.20.1', jar: 'player-statuses-fabric-*+mc1.16.5-26.x.jar', java: '17' }
+          - { loader: fabric, mc: '1.21.1', jar: 'player-statuses-fabric-*+mc1.16.5-26.x.jar', java: '21' }
+          - { loader: fabric, mc: '1.21.9', jar: 'player-statuses-fabric-*+mc1.16.5-26.x.jar', java: '21' }
+          - { loader: fabric, mc: '1.21.10', jar: 'player-statuses-fabric-*+mc1.16.5-26.x.jar', java: '21' }
+          - { loader: fabric, mc: '1.21.11', jar: 'player-statuses-fabric-*+mc1.16.5-26.x.jar', java: '21' }
+          - { loader: fabric, mc: '26.1', jar: 'player-statuses-fabric-*+mc1.16.5-26.x.jar', java: '25' }
+          - { loader: fabric, mc: '26.3', jar: 'player-statuses-fabric-*+mc1.16.5-26.x.jar', java: '25' }
           # One jar for every Forge and NeoForge version, the same way; the oldest loader of a band too
-          - { loader: forge, mc: '1.20', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '17', version: 'forge120_version_oldest', label: 'oldest' }
-          - { loader: forge, mc: '1.20.1', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '17', version: 'forge120_version' }
-          - { loader: forge, mc: '1.21.9', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'forge12110_version_oldest', label: 'oldest' }
-          - { loader: forge, mc: '1.21.10', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'forge12110_version' }
-          - { loader: forge, mc: '1.21.11', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'forge12111_version_oldest', label: 'oldest' }
-          - { loader: forge, mc: '1.21.11', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'forge12111_version' }
-          - { loader: forge, mc: '26.1', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '25', version: 'forge26_version_oldest', label: 'oldest' }
-          - { loader: forge, mc: '26.3', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '25', version: 'forge26_version' }
+          - { loader: forge, mc: '1.16.5', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '8', version: 'forge116_version' }
+          - { loader: forge, mc: '1.20', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '17', version: 'forge120_version_oldest', label: 'oldest' }
+          - { loader: forge, mc: '1.20.1', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '17', version: 'forge120_version' }
+          - { loader: forge, mc: '1.21.9', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '21', version: 'forge12110_version_oldest', label: 'oldest' }
+          - { loader: forge, mc: '1.21.10', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '21', version: 'forge12110_version' }
+          - { loader: forge, mc: '1.21.11', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '21', version: 'forge12111_version_oldest', label: 'oldest' }
+          - { loader: forge, mc: '1.21.11', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '21', version: 'forge12111_version' }
+          - { loader: forge, mc: '26.1', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '25', version: 'forge26_version_oldest', label: 'oldest' }
+          - { loader: forge, mc: '26.3', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '25', version: 'forge26_version' }
           # NeoForge for 1.20.1 is a fork of Forge and loads the Forge build
-          - { loader: neoforge, mc: '1.20.1', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '17', version: 'nf1201_forge' }
-          - { loader: neoforge, mc: '1.21', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'nf121_neoforge_oldest', label: 'oldest' }
-          - { loader: neoforge, mc: '1.21.1', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'nf121_neoforge' }
-          - { loader: neoforge, mc: '1.21.9', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'nf12110_neoforge_oldest', label: 'oldest' }
-          - { loader: neoforge, mc: '1.21.10', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'nf12110_neoforge' }
-          - { loader: neoforge, mc: '1.21.11', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '21', version: 'nf12111_neoforge' }
-          - { loader: neoforge, mc: '26.1.2', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '25', version: 'nf26_neoforge_oldest', label: 'oldest' }
-          - { loader: neoforge, mc: '26.3', jar: 'player-statuses-forge-neoforge-*+mc1.20.1-26.x.jar', java: '25', version: 'nf26_neoforge' }
+          - { loader: neoforge, mc: '1.20.1', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '17', version: 'nf1201_forge' }
+          - { loader: neoforge, mc: '1.20.4', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '17', version: 'nf1204_neoforge' }
+          - { loader: neoforge, mc: '1.21', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '21', version: 'nf121_neoforge_oldest', label: 'oldest' }
+          - { loader: neoforge, mc: '1.21.1', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '21', version: 'nf121_neoforge' }
+          - { loader: neoforge, mc: '1.21.9', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '21', version: 'nf12110_neoforge_oldest', label: 'oldest' }
+          - { loader: neoforge, mc: '1.21.10', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '21', version: 'nf12110_neoforge' }
+          - { loader: neoforge, mc: '1.21.11', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '21', version: 'nf12111_neoforge' }
+          - { loader: neoforge, mc: '26.1.2', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '25', version: 'nf26_neoforge_oldest', label: 'oldest' }
+          - { loader: neoforge, mc: '26.3', jar: 'player-statuses-forge-neoforge-*+mc1.16.5-26.x.jar', java: '25', version: 'nf26_neoforge' }
           # The plugin: Java 8 bytecode and the 1.16.5 API, so the oldest server runs it on Java 8
           - { loader: paper, mc: '1.16.5', jar: 'player-statuses-bukkit-*.jar', java: '8' }
           - { loader: paper, mc: '1.20.1', jar: 'player-statuses-bukkit-*.jar', java: '17' }

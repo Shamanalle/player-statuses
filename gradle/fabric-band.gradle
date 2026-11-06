@@ -10,8 +10,9 @@
 //   fabricMinecraft  the Minecraft range for fabric.mod.json, ">=1.21.9 <1.21.11"
 //   fabricRemap    true for obfuscated Minecraft (official names in the sources, intermediary in the jar)
 
-// Its jar carries the classes of ':common', so that module is configured first (configure-on-demand)
-evaluationDependsOn(':common')
+// Its jar carries the classes of ':common' (or ':common-j8' on Java 8), so that module is configured first
+def commonProject = (fabricJava as int) < 17 ? ':common-j8' : ':common'
+evaluationDependsOn(commonProject)
 
 version = "${project.mod_version}+${fabricTarget}"
 
@@ -28,14 +29,14 @@ repositories {
 }
 
 apply from: "${rootDir}/gradle/shared-sources.gradle"
-useShared(fabricShared)
+useShared(fabricShared, project.hasProperty('fabricExcluded') ? fabricExcluded : [])
 
 def mc = project.property("${fabricKey}_minecraft")
 def loader = project.property("${fabricKey}_fabric_loader")
 def api = project.property("${fabricKey}_fabric_api")
 
 dependencies {
-    implementation project(':common')
+    implementation project(commonProject)
     minecraft "com.mojang:minecraft:${mc}"
     if (fabricRemap) {
         mappings loom.officialMojangMappings()
@@ -47,14 +48,18 @@ dependencies {
     }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    options.release = fabricJava as int
-    options.encoding = 'UTF-8'
-}
+if ((fabricJava as int) == 8) {
+    apply from: "${rootDir}/gradle/jabel.gradle"
+} else {
+    tasks.withType(JavaCompile).configureEach {
+        options.release = fabricJava as int
+        options.encoding = 'UTF-8'
+    }
 
-java {
-    sourceCompatibility = JavaVersion.toVersion(fabricJava)
-    targetCompatibility = JavaVersion.toVersion(fabricJava)
+    java {
+        sourceCompatibility = JavaVersion.toVersion(fabricJava)
+        targetCompatibility = JavaVersion.toVersion(fabricJava)
+    }
 }
 
 processResources {
@@ -66,7 +71,7 @@ processResources {
 }
 
 jar {
-    from project(':common').sourceSets.main.output
+    from project(commonProject).sourceSets.main.output
     exclude 'com/terraformersmc/**'
 }
 

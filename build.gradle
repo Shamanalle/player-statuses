@@ -6,13 +6,23 @@ plugins {
 // (MergeJars, see mergeFabric below), which picks the band of the running Minecraft at startup. "java" is
 // the class file version the band may use (52 = Java 8, 61 = 17, 65 = 21, 69 = 25).
 def fabricBands = [
+        [id: 'mc1_16', project: ':fabric-1.16', target: 'mc1.16.5', java: 52],
+        [id: 'mc1_17', project: ':fabric-1.17', target: 'mc1.17-1.17.1', java: 60],
+        [id: 'mc1_18', project: ':fabric-1.18', target: 'mc1.18-1.18.2', java: 61],
+        [id: 'mc1_19', project: ':fabric-1.19', target: 'mc1.19-1.19.2', java: 61],
+        [id: 'mc1_19_4', project: ':fabric-1.19.4', target: 'mc1.19.3-1.19.4', java: 61],
+        [id: 'mc1_20_1', project: ':fabric-1.20.1', target: 'mc1.20-1.20.1', java: 61],
+        [id: 'mc1_20_4', project: ':fabric-1.20.4', target: 'mc1.20.2-1.20.4', java: 61],
+        [id: 'mc1_20_6', project: ':fabric-1.20.6', target: 'mc1.20.5-1.20.6', java: 65],
+        [id: 'mc1_21_1', project: ':fabric-1.21.1', target: 'mc1.21-1.21.1', java: 65],
+        [id: 'mc1_21_8', project: ':fabric-1.21.8', target: 'mc1.21.2-1.21.8', java: 65],
         [id: 'mc1_21_10', project: ':fabric-1.21.10', target: 'mc1.21.9-1.21.10', java: 65],
         [id: 'mc1_21_11', project: ':fabric-1.21.11', target: 'mc1.21.11', java: 65],
         [id: 'mc26', project: ':fabric-26', target: 'mc26.x', java: 69],
 ]
 // The Minecraft versions the universal jars cover, in their file names
-def fabricRange = 'mc1.21.9-26.x'
-def forgeRange = 'mc1.20.1-26.x'
+def fabricRange = 'mc1.16.5-26.x'
+def forgeRange = 'mc1.16.5-26.x'
 def fabricUniversalName = "player-statuses-fabric-${project.mod_version}+${fabricRange}.jar"
 
 // The Forge and NeoForge bands, each a full build against its own Minecraft: they go into one universal jar
@@ -22,11 +32,26 @@ def fabricUniversalName = "player-statuses-fabric-${project.mod_version}+${fabri
 // A band is built by its project's jar task, by another task of it (reobfJar: Forge 1.17.1 - 1.20.1 run with
 // Forge's names) or by its own Gradle (legacy: see legacyTargets). "toml" is the metadata the band's loader reads.
 def forgeBands = [
+        [id: 'forge_1_16_5', legacy: 'versions/forge/1.16.5', loader: 'forge', java: 52],
+        [id: 'forge_1_17', project: ':forge-1.17', task: 'reobfJar', loader: 'forge', java: 60],
+        [id: 'forge_1_18', project: ':forge-1.18', task: 'reobfJar', loader: 'forge', java: 61],
+        [id: 'forge_1_19', project: ':forge-1.19', task: 'reobfJar', loader: 'forge', java: 61],
+        [id: 'forge_1_19_4', project: ':forge-1.19.4', task: 'reobfJar', loader: 'forge', java: 61],
         [id: 'forge_1_20_1', project: ':forge-1.20.1', task: 'reobfJar', loader: 'forge', java: 61],
+        [id: 'forge_1_20_4', legacy: 'versions/forge/1.20.4', loader: 'forge', java: 61],
+        [id: 'forge_1_20_6', project: ':forge-1.20.6', loader: 'forge', java: 65],
+        [id: 'forge_1_21_1', project: ':forge-1.21.1', loader: 'forge', java: 65],
+        [id: 'forge_1_21_5', project: ':forge-1.21.5', loader: 'forge', java: 65],
+        [id: 'forge_1_21_8', project: ':forge-1.21.8', loader: 'forge', java: 65],
         [id: 'forge_1_21_10', project: ':forge-1.21.10', loader: 'forge', java: 65],
         [id: 'forge_1_21_11', project: ':forge-1.21.11', loader: 'forge', java: 65],
         [id: 'forge_26', project: ':forge-26', loader: 'forge', java: 65],
+        [id: 'neoforge_1_20_2', legacy: 'versions/neoforge/1.20.2', loader: 'neoforge', toml: 'META-INF/mods.toml', java: 61],
+        [id: 'neoforge_1_20_4', legacy: 'versions/neoforge/1.20.4', loader: 'neoforge', toml: 'META-INF/mods.toml', java: 61],
+        [id: 'neoforge_1_20_6', project: ':neoforge-1.20.6', loader: 'neoforge', java: 65],
         [id: 'neoforge_1_21_1', project: ':neoforge-1.21.1', loader: 'neoforge', java: 65],
+        [id: 'neoforge_1_21_5', project: ':neoforge-1.21.5', loader: 'neoforge', java: 65],
+        [id: 'neoforge_1_21_8', project: ':neoforge-1.21.8', loader: 'neoforge', java: 65],
         [id: 'neoforge_1_21_10', project: ':neoforge-1.21.10', loader: 'neoforge', java: 65],
         [id: 'neoforge_1_21_11', project: ':neoforge-1.21.11', loader: 'neoforge', java: 65],
         [id: 'neoforge_26', project: ':neoforge-26', loader: 'neoforge', java: 65],
@@ -39,7 +64,12 @@ def forgeUniversalName = "player-statuses-forge-neoforge-${project.mod_version}+
 // the older Minecraft versions: they cannot share this build with ForgeGradle 7 / NeoGradle. Each is
 // [dir: 'versions/forge/1.16.5', file: 'player-statuses-forge-%s+mc1.16.5.jar', jdk: '17'], run by
 // buildLegacy with a JDK 17 or 21 (LEGACY_JAVA_HOME, or the JAVA_HOME_21_X64 / JAVA_HOME_17_X64 of GitHub's runners).
-def legacyTargets = []
+def legacyTargets = [
+        [dir: 'versions/forge/1.16.5', file: 'player-statuses-forge-%s+mc1.16.5.jar', jdk: '17'],
+        [dir: 'versions/forge/1.20.4', file: 'player-statuses-forge-%s+mc1.20.2-1.20.4.jar', jdk: '17'],
+        [dir: 'versions/neoforge/1.20.2', file: 'player-statuses-neoforge-%s+mc1.20.2-1.20.3.jar'],
+        [dir: 'versions/neoforge/1.20.4', file: 'player-statuses-neoforge-%s+mc1.20.4.jar'],
+]
 
 def legacyJavaHome = { String jdk = null ->
     def names = jdk == '17' ? ['JAVA_HOME_17_X64', 'LEGACY_JAVA_HOME'] : ['LEGACY_JAVA_HOME', 'JAVA_HOME_21_X64', 'JAVA_HOME_17_X64']

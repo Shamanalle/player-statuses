@@ -1,0 +1,14 @@
+// NeoForge 1.20.4 is built on its own, with Gradle 8 and NeoGradle 7: the main build's tools start at
+// NeoForge 1.20.5. The main build runs this one (buildLegacy in the root build.gradle) and collects its jar.
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { url = 'https://maven.neoforged.net/releases' }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'player-statuses-neoforge-1.20.4'

@@ -30,6 +30,17 @@ public final class OverheadRenderer {
             boolean hasNameTag,
             PoseStack poseStack,
             MultiBufferSource bufferSource,
+            int packedLight,
+            float partialTick
+    ) {
+        render(entity, hasNameTag, poseStack, bufferSource, packedLight);
+    }
+
+    public static void render(
+            Entity entity,
+            boolean hasNameTag,
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
             int packedLight
     ) {
         if (!(entity instanceof Player)) {
@@ -55,8 +66,7 @@ public final class OverheadRenderer {
         poseStack.mulPose(mc.getEntityRenderDispatcher().cameraOrientation());
         poseStack.scale(-scale, -scale, scale);
 
-        boolean hasScore = hasNameTag && player.distanceToSqr(mc.player) < 100.0 && player.getScoreboard().getDisplayObjective(2) != null;
-        float yShift = hasNameTag ? (hasScore ? -22.0f : -12.0f) : 0.0f;
+        float yShift = hasNameTag ? -12.0f : 0.0f;
         poseStack.translate(0.0f, yShift, 0.0f);
 
         Matrix4f mat = poseStack.last().pose();

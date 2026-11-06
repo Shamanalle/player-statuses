@@ -1,0 +1,87 @@
+plugins {
+    id 'net.minecraftforge.gradle' version '[6.0.24,6.2)'
+}
+
+// Forge 1.20.2 - 1.20.4: compiled against Minecraft's own names and turned into Forge's runtime (SRG) names by reobfJar.
+def repoRoot = file('../../..')
+def props = new Properties()
+new File(repoRoot, 'gradle.properties').withInputStream { props.load(it) }
+
+def forge = project.findProperty('loaderOverride') ?: props.getProperty('forge1204_version')
+def minecraftVersion = forge.substring(0, forge.indexOf('-'))
+def modVersion = props.getProperty('mod_version')
+
+version = "${modVersion}+mc1.20.2-1.20.4"
+group = props.getProperty('maven_group')
+
+base {
+    archivesName = 'player-statuses-forge'
+}
+
+minecraft {
+    mappings channel: 'official', version: minecraftVersion
+}
+
+repositories {
+    mavenCentral()
+}
+
+def ownRoot = file('src/main/java')
+def sharedRoots = [
+        "${repoRoot}/shared/mc-1.20.1/src/main/java",
+        "${repoRoot}/shared/mc-all/src/main/java",
+        "${repoRoot}/common/src/main/java",
+].collect { new File(it) }
+def excluded = [
+        'com/kasper/playerstatuses/network/StatusPayload.java',
+]
+
+sourceSets {
+    stubs {
+        java.srcDir "${repoRoot}/common/src/stubs/java"
+    }
+    main {
+        compileClasspath += stubs.output
+        java {
+            sharedRoots.each { srcDir it }
+            exclude { FileTreeElement e ->
+                if (e.directory) {
+                    return false
+                }
+                def path = e.relativePath.pathString
+                def index = sharedRoots.findIndexOf { e.file.path.startsWith(it.path + File.separator) }
+                if (index < 0) {
+                    return false
+                }
+                def before = [ownRoot] + sharedRoots.take(index)
+                excluded.contains(path) || before.any { new File(it, path).exists() }
+            }
+        }
+        resources {
+            srcDir "${repoRoot}/common/src/main/resources"
+        }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${forge}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+}
+
+processResources {
+    inputs.property 'version', version
+    filesMatching('META-INF/mods.toml') {
+        expand 'version': version
+    }
+    filesMatching('playerstatuses-build.properties') {
+        expand 'version': modVersion
+    }
+}
+
+jar {
+    finalizedBy 'reobfJar'
+}

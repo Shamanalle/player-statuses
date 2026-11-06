@@ -1,1 +1,32 @@
-[]
+[
+  {
+    "file": "docs/images/gallery/store-typing.png",
+    "title": "Typing in chat",
+    "description": "An animated typing indicator appears above the player's head and in the Tab list while typing in chat.",
+    "featured": true
+  },
+  {
+    "file": "docs/images/gallery/store-inventory.png",
+    "title": "Inventory open",
+    "description": "Shows when a player has their survival or creative inventory open, with matching arm pose.",
+    "featured": false
+  },
+  {
+    "file": "docs/images/gallery/store-crafting.png",
+    "title": "Using a crafting table",
+    "description": "Shows when a player is using a crafting table or other work block.",
+    "featured": false
+  },
+  {
+    "file": "docs/images/gallery/store-container.png",
+    "title": "Looking inside a chest",
+    "description": "Shows when a player has a chest, barrel, shulker box or ender chest open.",
+    "featured": false
+  },
+  {
+    "file": "docs/images/gallery/store-afk.png",
+    "title": "AFK with a timer",
+    "description": "Shows when a player is away from the keyboard, together with how long they have been idle.",
+    "featured": false
+  }
+]

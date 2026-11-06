@@ -1,0 +1,32 @@
+modLoader = "javafml"
+loaderVersion = "[44,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/Shamanalle/player-statuses/issues"
+
+[[mods]]
+modId = "playerstatuses"
+version = "${version}"
+displayName = "Player Statuses"
+displayURL = "https://github.com/Shamanalle/player-statuses"
+logoFile = "assets/playerstatuses/icon.png"
+authors = "Shamanalle"
+displayTest = "IGNORE_ALL_VERSION"
+description = '''
+Shows above players' heads what they are doing: typing, in the inventory or a chest, AFK, tabbed out. Works with the mod on the server, or on Paper with the plugin.
+
+Показывает над головами игроков, чем они заняты: печатают, сидят в инвентаре или сундуке, АФК, свернули игру. Работает с модом на сервере или на Paper с плагином.
+'''
+
+[[dependencies.playerstatuses]]
+modId = "forge"
+mandatory = true
+versionRange = "[44,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.playerstatuses]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.19.3,1.20)"
+ordering = "NONE"
+side = "BOTH"

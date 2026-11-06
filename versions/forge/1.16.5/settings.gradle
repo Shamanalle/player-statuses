@@ -1,0 +1,19 @@
+// Forge 1.16.5 is built on its own: the game runs with Forge's SRG names and Minecraft 1.16.5's own class
+// names are not Mojang's, and only Architectury Loom builds Forge 1.16.5 against Mojang's names, which the code
+// shared with the other builds is written in. Architectury Loom cannot share a build with the Fabric Loom of the
+// main one, so the main build runs this one (buildLegacy in the root build.gradle) and collects its jar.
+// Gradle runs on a JDK 17 here: the Jabel compiler plugin (Java 17 sources, Java 8 bytecode) needs its javac.
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { url = 'https://maven.architectury.dev/' }
+        maven { url = 'https://maven.fabricmc.net/' }
+        maven { url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'player-statuses-forge-1.16.5'

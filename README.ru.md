@@ -11,14 +11,12 @@
 [![Modrinth](https://img.shields.io/badge/Modrinth-скачать-00AF5C?logo=modrinth&logoColor=white)](https://modrinth.com/mod/player-statuses)
 [![CurseForge](https://img.shields.io/badge/CurseForge-скачать-F16436?logo=curseforge&logoColor=white)](https://www.curseforge.com/minecraft/mc-mods/player-statuses)
 [![Release](https://img.shields.io/github/v/release/Shamanalle/player-statuses?logo=github&color=brightgreen&include_prereleases)](https://github.com/Shamanalle/player-statuses/releases)
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.20.1%20%E2%80%93%2026.3-blue.svg)](#версии-и-файлы)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.16.5%20%E2%80%93%2026.3-blue.svg)](#версии-и-файлы)
 [![Loaders](https://img.shields.io/badge/loaders-Fabric%20%C2%B7%20Quilt%20%C2%B7%20Forge%20%C2%B7%20NeoForge%20%C2%B7%20Paper-7c8cff.svg)](#версии-и-файлы)
 [![In-game tests](https://github.com/Shamanalle/player-statuses/actions/workflows/ingame.yml/badge.svg)](https://github.com/Shamanalle/player-statuses/actions/workflows/ingame.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
-
-> **В разработке.** Первая версия ещё собирается. Сейчас мод загружается на всех версиях ниже, а серверная часть отвечает на `/playerstatuses` и `/afk`; иконки над головами, связь клиента с сервером и мост в плагине — следующие шаги. Эта страница описывает мод таким, каким он будет в первой версии.
 
 ## Содержание
 
@@ -74,11 +72,11 @@
 
 | Файл | Для чего | Minecraft | Java |
 |---|---|---|---|
-| `player-statuses-fabric-<версия>+mc1.21.9-26.x.jar` | Fabric, Quilt (нужен [Fabric API](https://modrinth.com/mod/fabric-api)) | 1.21.9 – 1.21.11, 26.1 – 26.3 | 21+ (26.x: 25) |
-| `player-statuses-forge-neoforge-<версия>+mc1.20.1-26.x.jar` | Forge, NeoForge | Forge 1.20 – 1.20.1, 1.21.9 – 26.3; NeoForge 1.20.1, 1.21 – 1.21.1, 1.21.9 – 26.3 | 17+ (26.x: 25) |
+| `player-statuses-fabric-<версия>+mc1.16.5-26.x.jar` | Fabric, Quilt (нужен [Fabric API](https://modrinth.com/mod/fabric-api)) | 1.16.5 – 1.21.11, 26.1 – 26.3 | 8+ (26.x: 25) |
+| `player-statuses-forge-neoforge-<версия>+mc1.16.5-26.x.jar` | Forge, NeoForge | Forge 1.16.5, 1.17.1 – 1.21.11, 26.1 – 26.3; NeoForge 1.20.1 – 1.21.11, 26.1 – 26.3 | 8+ (26.x: 25) |
 | `player-statuses-bukkit-<версия>.jar` | Paper, Purpur, Folia, Spigot, Bukkit | 1.16.5 – 26.3 | 8+ |
 
-Мод кладётся в `.minecraft/mods/` (и в `mods/` сервера для серверной части), плагин — в `plugins/` сервера. Старые версии Minecraft (1.16.5 – 1.21.8 для мода) появятся в следующих версиях.
+Мод кладётся в `.minecraft/mods/` (и в `mods/` сервера для серверной части), плагин — в `plugins/` сервера.
 
 ## Команды
 
@@ -116,7 +114,9 @@
 | `afk_command` | `true` | игроки могут использовать `/afk` |
 | `detect_players_without_mod` | `true` | для игроков без мода сервер показывает то, что видит сам: АФК и открытые контейнеры |
 | `afk_minutes` | `5` | через сколько минут без движения и действий игрок без мода считается АФК (1 – 120) |
-| `language` | `en_us` | язык ответов в консоли |
+| `vanilla_overhead` | `true` | показывать статусы над головой ванильным клиентам на 1.19.4+ (`TextDisplay`) |
+| `vanilla_tab_list` | `true` | показывать статусы в списке игроков (Tab) ванильным клиентам |
+| `language` | `en_us` | язык ответов в консоли и запасной язык для ванильных клиентов |
 
 Значение, которое не удалось прочитать, попадает в лог, и вместо него берётся значение по умолчанию, но в файле остаётся то, что вы написали. Ключи, которые вы добавили сами, тоже остаются.
 

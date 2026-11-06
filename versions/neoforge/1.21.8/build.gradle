@@ -1,0 +1,10 @@
+plugins {
+    id 'net.neoforged.moddev' version '2.0.147'
+    id 'java'
+}
+
+// NeoForge, Minecraft 1.21.6-1.21.8 (see gradle/neoforge-band.gradle)
+ext.nfTarget = 'mc1.21.6-1.21.8'
+ext.nfVersion = 'nf1218_neoforge'
+ext.nfShared = ['shared/neoforge', 'shared/mc-1.21.8', 'shared/mc-all']
+apply from: "${rootDir}/gradle/neoforge-band.gradle"

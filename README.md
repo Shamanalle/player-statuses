@@ -11,14 +11,12 @@ See what other players are up to: a small icon above their heads shows when they
 [![Modrinth](https://img.shields.io/badge/Modrinth-download-00AF5C?logo=modrinth&logoColor=white)](https://modrinth.com/mod/player-statuses)
 [![CurseForge](https://img.shields.io/badge/CurseForge-download-F16436?logo=curseforge&logoColor=white)](https://www.curseforge.com/minecraft/mc-mods/player-statuses)
 [![Release](https://img.shields.io/github/v/release/Shamanalle/player-statuses?logo=github&color=brightgreen&include_prereleases)](https://github.com/Shamanalle/player-statuses/releases)
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.20.1%20%E2%80%93%2026.3-blue.svg)](#versions-and-files)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.16.5%20%E2%80%93%2026.3-blue.svg)](#versions-and-files)
 [![Loaders](https://img.shields.io/badge/loaders-Fabric%20%C2%B7%20Quilt%20%C2%B7%20Forge%20%C2%B7%20NeoForge%20%C2%B7%20Paper-7c8cff.svg)](#versions-and-files)
 [![In-game tests](https://github.com/Shamanalle/player-statuses/actions/workflows/ingame.yml/badge.svg)](https://github.com/Shamanalle/player-statuses/actions/workflows/ingame.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
-
-> **In development.** The first release is being built. Today the mod loads on every version below and the server side answers `/playerstatuses` and `/afk`; the icons above heads, the network link and the plugin's bridge come next. This page describes the mod as it will be in its first release.
 
 ## Contents
 
@@ -74,11 +72,11 @@ One file covers every Minecraft version of its loader: it picks the right build 
 
 | File | For | Minecraft | Java |
 |---|---|---|---|
-| `player-statuses-fabric-<version>+mc1.21.9-26.x.jar` | Fabric, Quilt (needs [Fabric API](https://modrinth.com/mod/fabric-api)) | 1.21.9 – 1.21.11, 26.1 – 26.3 | 21+ (26.x: 25) |
-| `player-statuses-forge-neoforge-<version>+mc1.20.1-26.x.jar` | Forge, NeoForge | Forge 1.20 – 1.20.1, 1.21.9 – 26.3; NeoForge 1.20.1, 1.21 – 1.21.1, 1.21.9 – 26.3 | 17+ (26.x: 25) |
+| `player-statuses-fabric-<version>+mc1.16.5-26.x.jar` | Fabric, Quilt (needs [Fabric API](https://modrinth.com/mod/fabric-api)) | 1.16.5 – 1.21.11, 26.1 – 26.3 | 8+ (26.x: 25) |
+| `player-statuses-forge-neoforge-<version>+mc1.16.5-26.x.jar` | Forge, NeoForge | Forge 1.16.5, 1.17.1 – 1.21.11, 26.1 – 26.3; NeoForge 1.20.1 – 1.21.11, 26.1 – 26.3 | 8+ (26.x: 25) |
 | `player-statuses-bukkit-<version>.jar` | Paper, Purpur, Folia, Spigot, Bukkit | 1.16.5 – 26.3 | 8+ |
 
-Put the mod into `.minecraft/mods/` (and into the server's `mods/` for the server side); the plugin into the server's `plugins/`. Older Minecraft versions (1.16.5 – 1.21.8 for the mod) come in later releases.
+Put the mod into `.minecraft/mods/` (and into the server's `mods/` for the server side); the plugin into the server's `plugins/`.
 
 ## Commands
 
@@ -116,7 +114,9 @@ Replies come in each player's game language.
 | `afk_command` | `true` | players may use `/afk` |
 | `detect_players_without_mod` | `true` | for players without the mod the server shows what it sees itself: AFK and open containers |
 | `afk_minutes` | `5` | minutes without moving or acting after which a player without the mod counts as AFK (1 – 120) |
-| `language` | `en_us` | language of the console's replies |
+| `vanilla_overhead` | `true` | show statuses above heads to vanilla clients on 1.19.4+ (`TextDisplay`) |
+| `vanilla_tab_list` | `true` | show statuses in the Tab player list to vanilla clients |
+| `language` | `en_us` | language of the console's replies and fallback language for vanilla clients |
 
 A value that cannot be read is reported in the log and the default is used, but the file keeps what you typed. Keys you add yourself stay in the file.
 

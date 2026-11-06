@@ -11,7 +11,7 @@ dependencies {
     jabel 'net.bytebuddy:byte-buddy:1.15.10'
 }
 
-tasks.withType(JavaCompile).configureEach {
+tasks.withType(JavaCompile).matching { !it.name.startsWith('_') }.configureEach {
     options.release = 8
     options.encoding = 'UTF-8'
     javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(17) }

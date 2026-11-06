@@ -1,0 +1,16 @@
+plugins {
+    id 'fabric-loom' version '1.18.2'
+    id 'java'
+}
+
+// Fabric / Quilt, Minecraft 1.21.2 - 1.21.8 (see gradle/fabric-band.gradle)
+ext.fabricTarget = 'mc1.21.2-1.21.8'
+ext.fabricKey = 'mc1218'
+ext.fabricJava = 21
+ext.fabricMinecraft = '>=1.21.2 <1.21.9'
+ext.fabricRemap = true
+ext.fabricShared = ['shared/fabric-1.21.8', 'shared/fabric', 'shared/mc-1.21.8', 'shared/mc-all']
+ext.fabricExcluded = [
+    'com/kasper/playerstatuses/mixin/AvatarRendererMixin.java'
+]
+apply from: "${rootDir}/gradle/fabric-band.gradle"

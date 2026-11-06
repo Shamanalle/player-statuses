@@ -61,11 +61,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - { module: forge-1.18, key: forge118_version_oldest }
+          - { module: forge-1.19, key: forge119_version_oldest }
+          - { module: forge-1.19.4, key: forge1194_version_oldest }
           - { module: forge-1.20.1, key: forge120_version_oldest }
           - { module: forge-1.21.10, key: forge12110_version_oldest }
           - { module: forge-1.21.11, key: forge12111_version_oldest }
           - { module: forge-26, key: forge26_version_oldest }
           - { module: neoforge-1.21.1, key: nf121_neoforge_oldest }
+          - { module: neoforge-1.21.5, key: nf1215_neoforge_oldest }
+          - { module: neoforge-1.21.8, key: nf1218_neoforge_oldest }
           - { module: neoforge-1.21.10, key: nf12110_neoforge_oldest }
           - { module: neoforge-1.21.11, key: nf12111_neoforge_oldest }
           - { module: neoforge-26, key: nf26_neoforge_oldest }
