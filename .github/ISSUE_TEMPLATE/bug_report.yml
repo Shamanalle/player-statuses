@@ -46,7 +46,7 @@ body:
     attributes:
       label: "Mod version / Версия мода"
       description: "The file name from your mods or plugins folder / Имя файла из папки mods или plugins"
-      placeholder: "player-statuses-fabric-0.1.0+mc1.21.9-26.x.jar"
+      placeholder: "player-statuses-fabric-1.0.0+mc1.16.5-26.x.jar"
     validations:
       required: true
 
