@@ -85,6 +85,23 @@ class StatusRelayTest {
         relay.onActed(alex, 70_000);
         assertFalse(relay.current(alex, 70_000).has(StatusFlag.AFK));
         assertEquals(Collections.singletonList(alex), relay.takeChanged());
+
+        // Modded client starting a new activity also clears manual /afk automatically
+        relay.setManualAfk(alex, true, 80_000);
+        relay.takeChanged();
+        relay.onClientMessage(alex, msg(PlayerStatus.of(Activity.TYPING)), 85_000);
+        assertFalse(relay.current(alex, 85_000).has(StatusFlag.AFK));
+        assertEquals(Activity.TYPING, relay.current(alex, 85_000).activity());
+    }
+
+    @Test
+    void retainOnlinePurgesPendingChangedEntries() {
+        StatusRelay relay = new StatusRelay();
+        relay.onClientMessage(alex, msg(PlayerStatus.of(Activity.TYPING)), 0);
+        relay.onClientMessage(sam, msg(PlayerStatus.of(Activity.INVENTORY)), 0);
+        relay.retainOnline(id -> id.equals(sam));
+        assertEquals(Collections.singletonList(sam), relay.takeChanged());
+        assertEquals(PlayerStatus.NONE, relay.current(alex, 0));
     }
 
     @Test
@@ -151,5 +168,24 @@ class StatusRelayTest {
         assertTrue(ServerDetector.isAfkCommand("  /AFK  "));
         assertFalse(ServerDetector.isAfkCommand("/say hello"));
         assertFalse(ServerDetector.isAfkCommand("/playerstatuses status"));
+    }
+
+    @Test
+    void headPoseIgnoresPassiveVehicleMotionUntilCameraMoves() {
+        StatusRelay relay = new StatusRelay();
+        ServerSettings settings = new ServerSettings();
+        ServerDetector detector = new ServerDetector();
+
+        detector.onPose(sam, 10.0, 64.0, 10.0, 45.0f, 5.0f, relay, 1_000L);
+        // Riding a minecart for 5 minutes with unchanged yaw/pitch -> becomes AFK
+        long t = 1_000L + 5 * 60_000L;
+        detector.onHeadPose(sam, 45.0f, 5.0f, relay, t);
+        detector.updatePlayer(sam, settings, relay, t);
+        assertTrue(relay.current(sam, t).has(StatusFlag.AFK));
+
+        // Rotating camera while riding -> clears AFK
+        detector.onHeadPose(sam, 90.0f, 5.0f, relay, t + 1_000L);
+        detector.updatePlayer(sam, settings, relay, t + 1_000L);
+        assertFalse(relay.current(sam, t + 1_000L).has(StatusFlag.AFK));
     }
 }

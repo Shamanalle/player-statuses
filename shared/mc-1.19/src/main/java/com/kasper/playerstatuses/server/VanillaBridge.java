@@ -25,6 +25,8 @@ import java.util.UUID;
 public final class VanillaBridge {
 
     public static final String OVERHEAD_TAG = "playerstatuses.overhead";
+    private static final String TAB_INSERTION_TAG = "playerstatuses";
+    private static final int JOIN_GRACE_TICKS = 20;
 
     private static final Field PACKET_ENTRIES = findEntriesField();
     private static Field entryDisplayNameField;
@@ -67,7 +69,7 @@ public final class VanillaBridge {
 
         for (ServerPlayer viewer : players) {
             UUID viewerId = viewer.getUUID();
-            if (!enabled || relay.hasMod(viewerId)) {
+            if (!enabled || relay.hasMod(viewerId) || viewer.tickCount < JOIN_GRACE_TICKS) {
                 Map<UUID, String> prevMap = SENT_TAB_NAMES.remove(viewerId);
                 if (prevMap != null && !prevMap.isEmpty()) {
                     for (ServerPlayer target : players) {
@@ -104,7 +106,8 @@ public final class VanillaBridge {
                         base = PlayerTeam.formatNameForTeam(target.getTeam(), target.getName());
                     }
                     Component decorated = base.copy().append(
-                            Component.literal(" [" + desc + "]").withStyle(ChatFormatting.GRAY));
+                            Component.literal(" [" + desc + "]")
+                                    .withStyle(s -> s.withColor(ChatFormatting.GRAY).withInsertion(TAB_INSERTION_TAG)));
                     sendTabDisplayName(viewer, target, decorated);
                 }
             }

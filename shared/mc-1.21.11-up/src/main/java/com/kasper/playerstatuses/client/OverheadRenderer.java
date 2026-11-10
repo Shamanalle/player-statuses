@@ -78,7 +78,8 @@ public final class OverheadRenderer {
 
         boolean hasName = state.nameTag != null;
         boolean hasScore = state.scoreText != null;
-        float yShift = hasName ? (hasScore ? -22.0f : -12.0f) : 0.0f;
+        float earsShift = (hasName && state.showExtraEars) ? -10.0f : 0.0f;
+        float yShift = (hasName ? (hasScore ? -22.0f : -12.0f) : 0.0f) + earsShift;
         poseStack.translate(0.0f, yShift, 0.0f);
 
         int light = state.lightCoords;
@@ -87,7 +88,7 @@ public final class OverheadRenderer {
             for (int i = 0; i < rects.size(); i++) {
                 float[] r = rects.get(i);
                 int c = colors.get(i);
-                float z = -0.05f + i * 0.0005f;
+                float z = -0.05f + i * 0.00015f;
                 vc.addVertex(mat, r[0], r[3], z).setColor(c).setLight(light);
                 vc.addVertex(mat, r[2], r[3], z).setColor(c).setLight(light);
                 vc.addVertex(mat, r[2], r[1], z).setColor(c).setLight(light);

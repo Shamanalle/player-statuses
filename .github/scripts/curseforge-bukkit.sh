@@ -22,10 +22,10 @@ for base in https://dev.bukkit.org https://minecraft.curseforge.com; do
 
   ids=()
   for version in "${wanted[@]}"; do
-    found=$(jq -r --arg v "${version}" '.[] | select(.name == $v) | .id' versions.json)
+    found=$(jq -r --arg v "${version}" '.[] | select(.name == $v and (.id // 0) > 0) | .id' versions.json)
     if [ -z "${found}" ]; then
       short=$(cut -d. -f1-2 <<< "${version}")
-      found=$(jq -r --arg v "${short}" '.[] | select(.name == $v) | .id' versions.json)
+      found=$(jq -r --arg v "${short}" '.[] | select(.name == $v and (.id // 0) > 0) | .id' versions.json)
     fi
     if [ -n "${found}" ]; then
       mapfile -t -O "${#ids[@]}" ids <<< "${found}"
@@ -62,7 +62,7 @@ for base in https://dev.bukkit.org https://minecraft.curseforge.com; do
     fi
     echo "Upload answered ${status}: $(head -c 600 upload.json 2>/dev/null)"
     # The body is not always a JSON object (an error page, a bare string): read it defensively
-    rejected=$( (jq -r 'try (.errorMessage // "") catch ""' upload.json 2>/dev/null || true) | sed -n 's/^Invalid game version ID: \([0-9]*\).*/\1/p')
+    rejected=$( (jq -r 'try (.errorMessage // "") catch ""' upload.json 2>/dev/null || true) | sed -En 's/.*([Ii]nvalid )?[Gg]ame version [Ii][Dd]: ([0-9]+).*/\2/p')
     if [ "${status}" != "400" ] || [ -z "${rejected}" ]; then
       break
     fi

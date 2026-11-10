@@ -19,23 +19,29 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.bukkit.potion.PotionEffectType;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -51,6 +57,7 @@ import java.util.logging.Level;
 public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, PluginMessageListener {
 
     private static final int RELOAD_CHECK_TICKS = 40;
+    private static final long JOIN_GRACE_MS = 1_000L;
 
     private static final class TabState {
         final String baseListName;
@@ -64,11 +71,29 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
 
     private final StatusServer core = new StatusServer();
     private final ServerDetector detector = new ServerDetector();
-    private final Set<UUID> leftPlayers = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<UUID> leftPlayers = Collections.newSetFromMap(new ConcurrentHashMap<UUID, Boolean>());
+    private final Set<UUID> vanishedPlayers = Collections.newSetFromMap(new ConcurrentHashMap<UUID, Boolean>());
+    private final Map<UUID, Long> joinedAt = new ConcurrentHashMap<>();
     private final Map<UUID, TabState> tabStates = new ConcurrentHashMap<>();
     private Scheduling scheduling;
     private OverheadBridge overheadBridge;
+    private Command registeredAfkCommand;
     private int ticks;
+
+    static boolean isVanished(Player player) {
+        if (player == null) {
+            return false;
+        }
+        try {
+            for (MetadataValue meta : player.getMetadata("vanished")) {
+                if (meta != null && meta.asBoolean()) {
+                    return true;
+                }
+            }
+        } catch (RuntimeException ignored) {
+        }
+        return false;
+    }
 
     @Override
     public void onEnable() {
@@ -80,22 +105,53 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
         getServer().getMessenger().registerIncomingPluginChannel(this, StatusMessages.CHANNEL, this);
         getServer().getMessenger().registerOutgoingPluginChannel(this, StatusMessages.CHANNEL);
         getServer().getPluginManager().registerEvents(this, this);
-        if (core.settings().get(ServerSettings.AFK_COMMAND)) {
-            registerAfk();
-        }
+        syncAfkCommand(core.settings().get(ServerSettings.AFK_COMMAND));
         scheduling.everyTick(this::tick);
     }
 
     @Override
     public void onDisable() {
-        if (overheadBridge != null) {
-            overheadBridge.clearAll();
+        try {
+            if (overheadBridge != null) {
+                overheadBridge.clearAll();
+            }
+        } catch (RuntimeException ignored) {
         }
-        if (scheduling != null) {
-            scheduling.cancelAll();
+        try {
+            restoreAllTabNames();
+        } catch (RuntimeException ignored) {
         }
-        getServer().getMessenger().unregisterIncomingPluginChannel(this);
-        getServer().getMessenger().unregisterOutgoingPluginChannel(this);
+        try {
+            if (scheduling != null) {
+                scheduling.cancelAll();
+            }
+        } catch (RuntimeException ignored) {
+        }
+        try {
+            syncAfkCommand(false);
+        } catch (RuntimeException ignored) {
+        }
+        try {
+            getServer().getMessenger().unregisterIncomingPluginChannel(this);
+            getServer().getMessenger().unregisterOutgoingPluginChannel(this);
+        } catch (RuntimeException ignored) {
+        }
+        leftPlayers.clear();
+        vanishedPlayers.clear();
+        joinedAt.clear();
+        tabStates.clear();
+    }
+
+    private void restoreAllTabNames() {
+        if (!getServer().isPrimaryThread()) {
+            return;
+        }
+        for (Map.Entry<UUID, TabState> e : tabStates.entrySet()) {
+            Player p = getServer().getPlayer(e.getKey());
+            if (p != null && p.isOnline()) {
+                p.setPlayerListName(e.getValue().baseListName);
+            }
+        }
     }
 
     @Override
@@ -112,7 +168,22 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
         }
         if (firstTime) {
             List<StatusMessages.Entry> active = relay.activeEntries(now);
-            for (byte[] packet : StatusMessages.statusesSplit(active)) {
+            List<StatusMessages.Entry> visible = new ArrayList<>(active.size());
+            for (StatusMessages.Entry entry : active) {
+                UUID targetId = entry.player();
+                if (targetId.equals(id)) {
+                    visible.add(entry);
+                    continue;
+                }
+                if (vanishedPlayers.contains(targetId)) {
+                    continue;
+                }
+                Player target = getServer().getPlayer(targetId);
+                if (target != null && !isVanished(target) && player.canSee(target)) {
+                    visible.add(entry);
+                }
+            }
+            for (byte[] packet : StatusMessages.statusesSplit(visible)) {
                 player.sendPluginMessage(this, StatusMessages.CHANNEL, packet);
             }
         }
@@ -124,31 +195,45 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
         Collection<? extends Player> players = getServer().getOnlinePlayers();
 
         boolean hasVanillaViewer = false;
+        List<StatusMessages.Entry> visibilityTransitions = new ArrayList<>();
         for (Player p : players) {
             UUID id = p.getUniqueId();
             detector.updatePlayer(id, core.settings(), relay, now);
-            if (!relay.hasMod(id)) {
-                hasVanillaViewer = true;
+            boolean vanished = isVanished(p);
+            if (vanished) {
+                if (vanishedPlayers.add(id)) {
+                    visibilityTransitions.add(new StatusMessages.Entry(id, PlayerStatus.NONE));
+                }
+            } else {
+                if (vanishedPlayers.remove(id)) {
+                    PlayerStatus cur = relay.current(id, now);
+                    if (!cur.isNone()) {
+                        visibilityTransitions.add(new StatusMessages.Entry(id, cur));
+                    }
+                }
+                if (!relay.hasMod(id) && (now - joinedAt.getOrDefault(id, 0L)) >= JOIN_GRACE_MS) {
+                    hasVanillaViewer = true;
+                }
             }
         }
 
         relay.tick(now);
 
-        List<StatusMessages.Entry> updates = new ArrayList<>(relay.takeChangedEntries(now));
-        for (UUID leftId : leftPlayers) {
-            updates.add(new StatusMessages.Entry(leftId, PlayerStatus.NONE));
+        List<StatusMessages.Entry> rawUpdates = relay.takeChangedEntries(now);
+        List<StatusMessages.Entry> updates = new ArrayList<>(rawUpdates.size() + visibilityTransitions.size());
+        for (StatusMessages.Entry entry : rawUpdates) {
+            if (!vanishedPlayers.contains(entry.player()) || entry.status().isNone()) {
+                updates.add(entry);
+            }
         }
-        leftPlayers.clear();
+        updates.addAll(visibilityTransitions);
+        for (Iterator<UUID> it = leftPlayers.iterator(); it.hasNext(); ) {
+            updates.add(new StatusMessages.Entry(it.next(), PlayerStatus.NONE));
+            it.remove();
+        }
 
         if (!updates.isEmpty()) {
-            List<byte[]> packets = StatusMessages.statusesSplit(updates);
-            for (Player p : players) {
-                if (relay.hasMod(p.getUniqueId())) {
-                    for (byte[] packet : packets) {
-                        p.sendPluginMessage(this, StatusMessages.CHANNEL, packet);
-                    }
-                }
-            }
+            sendUpdatesToModdedViewers(players, relay, updates);
         }
 
         if (overheadBridge != null) {
@@ -157,9 +242,62 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
         tickVanillaTabList(players, relay, hasVanillaViewer, now);
 
         if (++ticks % RELOAD_CHECK_TICKS == 0) {
-            core.reloadIfChanged();
+            if (core.reloadIfChanged()) {
+                syncAfkCommand(core.settings().get(ServerSettings.AFK_COMMAND));
+            }
             relay.retainOnline(id -> getServer().getPlayer(id) != null);
             detector.retainOnline(id -> getServer().getPlayer(id) != null);
+            vanishedPlayers.removeIf(id -> getServer().getPlayer(id) == null);
+            joinedAt.keySet().removeIf(id -> getServer().getPlayer(id) == null);
+        }
+    }
+
+    private void sendUpdatesToModdedViewers(
+            Collection<? extends Player> players,
+            StatusRelay relay,
+            List<StatusMessages.Entry> updates
+    ) {
+        List<byte[]> sharedPackets = null;
+        for (Player viewer : players) {
+            UUID viewerId = viewer.getUniqueId();
+            if (!relay.hasMod(viewerId)) {
+                continue;
+            }
+            boolean needsCustomFilter = false;
+            for (StatusMessages.Entry entry : updates) {
+                UUID targetId = entry.player();
+                if (!targetId.equals(viewerId) && !entry.status().isNone()) {
+                    Player target = getServer().getPlayer(targetId);
+                    if (target == null || !viewer.canSee(target)) {
+                        needsCustomFilter = true;
+                        break;
+                    }
+                }
+            }
+            List<byte[]> packets;
+            if (!needsCustomFilter) {
+                if (sharedPackets == null) {
+                    sharedPackets = StatusMessages.statusesSplit(updates);
+                }
+                packets = sharedPackets;
+            } else {
+                List<StatusMessages.Entry> filtered = new ArrayList<>(updates.size());
+                for (StatusMessages.Entry entry : updates) {
+                    UUID targetId = entry.player();
+                    if (targetId.equals(viewerId) || entry.status().isNone()) {
+                        filtered.add(entry);
+                    } else {
+                        Player target = getServer().getPlayer(targetId);
+                        if (target != null && viewer.canSee(target)) {
+                            filtered.add(entry);
+                        }
+                    }
+                }
+                packets = StatusMessages.statusesSplit(filtered);
+            }
+            for (byte[] packet : packets) {
+                viewer.sendPluginMessage(this, StatusMessages.CHANNEL, packet);
+            }
         }
     }
 
@@ -176,6 +314,7 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
                     return;
                 }
                 boolean hidden = !enabled
+                        || isVanished(p)
                         || p.getGameMode() == GameMode.SPECTATOR
                         || p.hasPotionEffect(PotionEffectType.INVISIBILITY);
                 PlayerStatus status = hidden ? PlayerStatus.NONE : relay.current(id, now);
@@ -191,12 +330,12 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
                 if (state != null && desc.equals(state.lastDesc)) {
                     return;
                 }
-                String base = state != null ? state.baseListName : p.getPlayerListName();
+                String base = state != null ? state.baseListName : ServerDetector.stripTabMarker(p.getPlayerListName());
                 if (base == null || base.isEmpty()) {
                     base = p.getName();
                 }
                 tabStates.put(id, new TabState(base, desc));
-                p.setPlayerListName(base + " " + ChatColor.GRAY + "[" + desc + "]" + ChatColor.RESET);
+                p.setPlayerListName(base + ServerDetector.TAB_MARKER + " " + ChatColor.GRAY + "[" + desc + "]" + ChatColor.RESET);
             });
         }
 
@@ -204,25 +343,36 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
     }
 
     @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        joinedAt.put(event.getPlayer().getUniqueId(), System.currentTimeMillis());
+    }
+
+    @EventHandler(ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
         Location to = event.getTo();
         if (to == null) {
             return;
         }
-        detector.onPose(
-                event.getPlayer().getUniqueId(),
-                to.getX(), to.getY(), to.getZ(), to.getYaw(), to.getPitch(),
-                core.relay(),
-                System.currentTimeMillis()
-        );
+        Player player = event.getPlayer();
+        long now = System.currentTimeMillis();
+        if (player.isInsideVehicle()) {
+            detector.onHeadPose(player.getUniqueId(), to.getYaw(), to.getPitch(), core.relay(), now);
+        } else {
+            detector.onPose(
+                    player.getUniqueId(),
+                    to.getX(), to.getY(), to.getZ(), to.getYaw(), to.getPitch(),
+                    core.relay(),
+                    now
+            );
+        }
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onChat(AsyncPlayerChatEvent event) {
         detector.onActed(event.getPlayer().getUniqueId(), core.relay(), System.currentTimeMillis());
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onCommandPreprocess(PlayerCommandPreprocessEvent event) {
         if (!ServerDetector.isAfkCommand(event.getMessage())) {
             detector.onActed(event.getPlayer().getUniqueId(), core.relay(), System.currentTimeMillis());
@@ -231,10 +381,12 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
-        detector.onActed(event.getPlayer().getUniqueId(), core.relay(), System.currentTimeMillis());
+        if (event.getAction() != Action.PHYSICAL) {
+            detector.onActed(event.getPlayer().getUniqueId(), core.relay(), System.currentTimeMillis());
+        }
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onInventoryOpen(InventoryOpenEvent event) {
         if (event.getPlayer() instanceof Player) {
             Player player = (Player) event.getPlayer();
@@ -261,7 +413,7 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
         }
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
         if (event.getWhoClicked() instanceof Player) {
             detector.onActed(event.getWhoClicked().getUniqueId(), core.relay(), System.currentTimeMillis());
@@ -270,14 +422,17 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        UUID id = event.getPlayer().getUniqueId();
+        Player player = event.getPlayer();
+        UUID id = player.getUniqueId();
+        boolean wasVanished = vanishedPlayers.remove(id) || isVanished(player);
+        joinedAt.remove(id);
         detector.remove(id);
         tabStates.remove(id);
         if (overheadBridge != null) {
             overheadBridge.remove(id);
         }
         StatusRelay relay = core.relay();
-        if (!relay.current(id, System.currentTimeMillis()).isNone()) {
+        if (!wasVanished && !relay.current(id, System.currentTimeMillis()).isNone()) {
             leftPlayers.add(id);
         }
         relay.remove(id);
@@ -285,8 +440,10 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        reply(sender, StatusCommands.run(String.join(" ", args), source(sender), core,
-                getServer().getOnlinePlayers().size(), System.currentTimeMillis()));
+        CommandReply out = StatusCommands.run(String.join(" ", args), source(sender), core,
+                getServer().getOnlinePlayers().size(), System.currentTimeMillis());
+        syncAfkCommand(core.settings().get(ServerSettings.AFK_COMMAND));
+        reply(sender, out);
         return true;
     }
 
@@ -306,23 +463,81 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
 
     /**
      * {@code /afk} is not in plugin.yml, so a server that turns it off keeps the {@code /afk} of another
-     * plugin; when it is on it is added here (as {@code /playerstatuses:afk} too).
+     * plugin; when toggled via {@code server.json} or {@code /playerstatuses reload}, it registers or
+     * unregisters dynamically.
      */
-    private void registerAfk() {
-        try {
-            CommandMap map = (CommandMap) getServer().getClass().getMethod("getCommandMap").invoke(getServer());
-            Command afk = new Command(StatusCommands.AFK, "Mark yourself AFK until you move", "/afk", Collections.emptyList()) {
-                @Override
-                public boolean execute(CommandSender sender, String label, String[] args) {
-                    reply(sender, StatusCommands.afk(source(sender), core, System.currentTimeMillis()));
-                    return true;
+    private void syncAfkCommand(boolean shouldRegister) {
+        if (shouldRegister) {
+            if (registeredAfkCommand != null) {
+                return;
+            }
+            try {
+                CommandMap map = findCommandMap();
+                if (map == null) {
+                    return;
                 }
-            };
-            afk.setPermission("playerstatuses.afk");
-            map.register(getName().toLowerCase(Locale.ROOT), afk);
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            getLogger().warning("Could not add /afk: " + e);
+                Command afk = new Command(StatusCommands.AFK, "Mark yourself AFK until you move", "/afk", Collections.emptyList()) {
+                    @Override
+                    public boolean execute(CommandSender sender, String label, String[] args) {
+                        reply(sender, StatusCommands.afk(source(sender), core, System.currentTimeMillis()));
+                        return true;
+                    }
+                };
+                afk.setPermission("playerstatuses.afk");
+                map.register(getName().toLowerCase(Locale.ROOT), afk);
+                registeredAfkCommand = afk;
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                getLogger().warning("Could not add /afk: " + e);
+            }
+        } else if (registeredAfkCommand != null) {
+            Command toRemove = registeredAfkCommand;
+            registeredAfkCommand = null;
+            try {
+                CommandMap map = findCommandMap();
+                if (map != null) {
+                    toRemove.unregister(map);
+                    Map<?, ?> known = findKnownCommands(map);
+                    if (known != null) {
+                        for (Iterator<? extends Map.Entry<?, ?>> it = known.entrySet().iterator(); it.hasNext(); ) {
+                            if (it.next().getValue() == toRemove) {
+                                it.remove();
+                            }
+                        }
+                    }
+                }
+            } catch (ReflectiveOperationException | RuntimeException ignored) {
+            }
         }
+    }
+
+    private CommandMap findCommandMap() throws ReflectiveOperationException {
+        Method m = getServer().getClass().getMethod("getCommandMap");
+        return (CommandMap) m.invoke(getServer());
+    }
+
+    private static Map<?, ?> findKnownCommands(CommandMap map) {
+        try {
+            Method m = map.getClass().getMethod("getKnownCommands");
+            Object v = m.invoke(map);
+            if (v instanceof Map) {
+                return (Map<?, ?>) v;
+            }
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+        }
+        Class<?> cls = map.getClass();
+        while (cls != null) {
+            for (Field f : cls.getDeclaredFields()) {
+                if ("knownCommands".equals(f.getName()) && Map.class.isAssignableFrom(f.getType())) {
+                    try {
+                        f.setAccessible(true);
+                        return (Map<?, ?>) f.get(map);
+                    } catch (ReflectiveOperationException | RuntimeException ignored) {
+                    }
+                }
+            }
+            cls = cls.getSuperclass();
+        }
+        return null;
     }
 
     private StatusCommands.Source source(CommandSender sender) {

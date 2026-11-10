@@ -77,6 +77,7 @@ public final class MergeJars {
     /** Annotations a loader acts on in any class: in a moved glue class they would act a second time. */
     private static final Set<String> FORBIDDEN = Set.of(
             "Lnet/minecraftforge/fml/common/Mod$EventBusSubscriber;",
+            "Lnet/minecraftforge/fml/common/EventBusSubscriber;",
             "Lnet/neoforged/fml/common/Mod$EventBusSubscriber;",
             "Lnet/neoforged/fml/common/EventBusSubscriber;",
             "Lde/maxhenkel/voicechat/api/ForgeVoicechatPlugin;");
@@ -311,11 +312,20 @@ public final class MergeJars {
 
             @Override
             public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
+                useType(Type.getType(descriptor));
                 return null;
             }
 
             @Override
             public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+                Type mt = Type.getMethodType(descriptor);
+                useType(mt.getReturnType());
+                for (Type arg : mt.getArgumentTypes()) {
+                    useType(arg);
+                }
+                if (exceptions != null) {
+                    Arrays.stream(exceptions).forEach(this::useClass);
+                }
                 return new MethodVisitor(Opcodes.ASM9) {
                     @Override
                     public void visitTypeInsn(int opcode, String type) {
@@ -364,6 +374,12 @@ public final class MergeJars {
                     useType(type);
                 } else if (value instanceof Handle handle) {
                     useHandle(handle);
+                } else if (value instanceof org.objectweb.asm.ConstantDynamic cd) {
+                    useType(Type.getType(cd.getDescriptor()));
+                    useHandle(cd.getBootstrapMethod());
+                    for (int idx = 0; idx < cd.getBootstrapMethodArgumentCount(); idx++) {
+                        useConstant(cd.getBootstrapMethodArgument(idx));
+                    }
                 }
             }
 

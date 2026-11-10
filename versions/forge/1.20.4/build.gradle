@@ -28,7 +28,7 @@ repositories {
 
 def ownRoot = file('src/main/java')
 def sharedRoots = [
-        "${repoRoot}/shared/mc-1.20.1/src/main/java",
+        "${repoRoot}/shared/mc-1.20.4/src/main/java",
         "${repoRoot}/shared/mc-all/src/main/java",
         "${repoRoot}/common/src/main/java",
 ].collect { new File(it) }

@@ -24,7 +24,7 @@ import net.minecraftforge.fmllegacy.network.NetworkRegistry;
 import net.minecraftforge.fmllegacy.network.PacketDistributor;
 import net.minecraftforge.fmllegacy.network.event.EventNetworkChannel;
 import net.minecraftforge.fmllegacy.server.ServerLifecycleHooks;
-import net.minecraftforge.fmlserverevents.FMLServerStartingEvent;
+import net.minecraftforge.fmlserverevents.FMLServerStoppingEvent;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -93,6 +93,7 @@ public final class PlayerStatusesForge {
                 ServerSide.left(player);
             }
         });
+        MinecraftForge.EVENT_BUS.addListener((FMLServerStoppingEvent e) -> ServerSide.stop());
         if (FMLEnvironment.dist == Dist.CLIENT) {
             ForgeClient.init(FMLPaths.CONFIGDIR.get(), CHANNEL_ID);
         }

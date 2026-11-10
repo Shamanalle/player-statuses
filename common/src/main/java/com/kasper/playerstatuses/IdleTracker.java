@@ -22,7 +22,7 @@ public final class IdleTracker {
 
     /** Something the player did on purpose: a key, a click, a chat line, walking. */
     public void input(long now) {
-        lastInput = Math.max(lastInput, now);
+        lastInput = now;
     }
 
     /**
@@ -42,7 +42,11 @@ public final class IdleTracker {
     }
 
     public long idleMillis(long now) {
-        return Math.max(0, now - lastInput);
+        if (now < lastInput) {
+            lastInput = now;
+            return 0;
+        }
+        return now - lastInput;
     }
 
     /** When the last input was. */

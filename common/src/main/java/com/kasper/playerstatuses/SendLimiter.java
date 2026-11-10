@@ -28,6 +28,9 @@ public final class SendLimiter {
      * alone never causes a message: the receivers count it up themselves.
      */
     public PlayerStatus poll(PlayerStatus wanted, long now) {
+        if (lastSent != null && now < lastSentAt) {
+            lastSentAt = now - interval;
+        }
         if (lastSent != null && wanted.sameState(lastSent)) {
             return null;
         }

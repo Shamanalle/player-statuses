@@ -97,7 +97,14 @@ public final class ServerText {
     /** Reads a flat JSON object of strings ({"key": "value", ...}), which is all a language file is. */
     static Map<String, String> parse(String json) {
         Map<String, String> out = new HashMap<>();
-        int[] i = {json.indexOf('{') + 1};
+        if (json == null) {
+            return out;
+        }
+        int open = json.indexOf('{');
+        if (open < 0) {
+            return out;
+        }
+        int[] i = {open + 1};
         while (true) {
             skipSpace(json, i);
             if (i[0] >= json.length() || json.charAt(i[0]) == '}') {
@@ -107,11 +114,37 @@ public final class ServerText {
             skipSpace(json, i);
             expect(json, i, ':');
             skipSpace(json, i);
-            out.put(key, string(json, i));
+            if (i[0] < json.length() && json.charAt(i[0]) == '"') {
+                out.put(key, string(json, i));
+            } else {
+                skipNonStringValue(json, i);
+            }
             skipSpace(json, i);
             if (i[0] < json.length() && json.charAt(i[0]) == ',') {
                 i[0]++;
             }
+        }
+    }
+
+    private static void skipNonStringValue(String s, int[] i) {
+        int depth = 0;
+        while (i[0] < s.length()) {
+            char c = s.charAt(i[0]);
+            if (c == '"') {
+                string(s, i);
+                continue;
+            }
+            if (c == '{' || c == '[') {
+                depth++;
+            } else if (c == '}' || c == ']') {
+                if (depth == 0) {
+                    return;
+                }
+                depth--;
+            } else if (c == ',' && depth == 0) {
+                return;
+            }
+            i[0]++;
         }
     }
 

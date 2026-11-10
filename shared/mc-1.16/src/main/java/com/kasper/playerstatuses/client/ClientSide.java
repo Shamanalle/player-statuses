@@ -5,9 +5,11 @@ import com.kasper.playerstatuses.ClientSettings;
 import com.kasper.playerstatuses.PlayerStatus;
 import com.kasper.playerstatuses.StatusClient;
 import com.kasper.playerstatuses.VoiceChatState;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.scores.Team;
 
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -27,6 +29,7 @@ public final class ClientSide {
     private static final AtomicInteger OVERHEAD_DRAWS = new AtomicInteger();
     private static Path configDir;
     private static PacketSender sender;
+    private static KeyMapping settingsKey;
     private static boolean started;
     private static boolean wasInWorld;
     private static Screen lastScreen;
@@ -44,6 +47,10 @@ public final class ClientSide {
 
     public static void useSender(PacketSender s) {
         sender = s;
+    }
+
+    public static void bindSettingsKey(KeyMapping key) {
+        settingsKey = key;
     }
 
     public static synchronized StatusClient core() {
@@ -65,6 +72,12 @@ public final class ClientSide {
     public static void tick(Minecraft mc) {
         StatusClient client = core();
         long now = System.currentTimeMillis();
+        while (settingsKey != null && settingsKey.consumeClick()) {
+            Screen current = ClientAccess.screen(mc);
+            if (current == null) {
+                ClientAccess.setScreen(mc, new SettingsScreen(null));
+            }
+        }
         if (mc.level == null || mc.player == null || mc.getConnection() == null) {
             if (wasInWorld) {
                 wasInWorld = false;
@@ -146,13 +159,16 @@ public final class ClientSide {
             return PlayerStatus.NONE;
         }
         boolean isSelf = target == mc.player || target.getUUID().equals(mc.player.getUUID());
+        if (!isSelf && !isTeamNameVisible(target, mc.player)) {
+            return PlayerStatus.NONE;
+        }
         boolean thirdPerson = !mc.options.getCameraType().isFirstPerson();
         boolean invisible = !isSelf && target.isInvisibleTo(mc.player);
         boolean spectator = target.isSpectator();
-        boolean riding = target.isPassenger() || target.isVehicle();
+        boolean hasPassengers = target.isVehicle();
         boolean sneaking = target.isDiscrete();
         double distSq = target.distanceToSqr(mc.player);
-        if (!client.shouldShowOverhead(status, ClientAccess.hideGui(mc), isSelf, thirdPerson, invisible, spectator, riding, sneaking, distSq)) {
+        if (!client.shouldShowOverhead(status, ClientAccess.hideGui(mc), isSelf, thirdPerson, invisible, spectator, hasPassengers, sneaking, distSq)) {
             return PlayerStatus.NONE;
         }
         return status;
@@ -174,7 +190,30 @@ public final class ClientSide {
         if ((!isSelf && target.isInvisibleTo(mc.player)) || target.isSpectator()) {
             return PlayerStatus.NONE;
         }
+        int maxDist = client.settings().get(ClientSettings.VIEW_DISTANCE);
+        if (target.distanceToSqr(mc.player) > (double) maxDist * maxDist) {
+            return PlayerStatus.NONE;
+        }
         return client.statusOf(target.getUUID(), System.currentTimeMillis());
+    }
+
+    public static boolean isTeamNameVisible(Player target, Player viewer) {
+        Team team = target.getTeam();
+        if (team == null) {
+            return true;
+        }
+        Team viewerTeam = viewer != null ? viewer.getTeam() : null;
+        Team.Visibility vis = team.getNameTagVisibility();
+        if (vis == Team.Visibility.NEVER) {
+            return false;
+        }
+        if (vis == Team.Visibility.HIDE_FOR_OTHER_TEAMS) {
+            return viewerTeam != null && team.isAlliedTo(viewerTeam);
+        }
+        if (vis == Team.Visibility.HIDE_FOR_OWN_TEAM) {
+            return viewerTeam == null || !team.isAlliedTo(viewerTeam);
+        }
+        return true;
     }
 
     public static void markOverheadDrawn() {

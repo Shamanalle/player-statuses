@@ -15,12 +15,14 @@ final class FoliaScheduling implements Scheduling {
 
     @Override
     public void everyTick(Runnable tick) {
-        Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, task -> tick.run(), 1L, 1L);
+        if (plugin.isEnabled()) {
+            Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, task -> tick.run(), 1L, 1L);
+        }
     }
 
     @Override
     public void runOnEntity(Entity entity, Runnable task) {
-        if (entity != null) {
+        if (entity != null && plugin.isEnabled()) {
             entity.getScheduler().run(plugin, t -> task.run(), null);
         }
     }

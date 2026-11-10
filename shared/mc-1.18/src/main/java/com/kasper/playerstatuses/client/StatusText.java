@@ -52,7 +52,7 @@ public final class StatusText {
             return TextComponent.EMPTY;
         }
         Style accent = Style.EMPTY.withColor(TextColor.fromRgb(StatusIcon.accentRgb(status)));
-        MutableComponent out = new TextComponent(" [").withStyle(ChatFormatting.DARK_GRAY);
+        MutableComponent out = new TextComponent(" [").withStyle(ChatFormatting.GRAY);
         out.append(new TextComponent(StatusIcon.symbol(status) + " ").setStyle(accent));
         out.append(overheadLabel(status).copy().setStyle(accent));
         for (StatusFlag extra : StatusIcon.secondaryFlags(status)) {
@@ -62,7 +62,7 @@ public final class StatusText {
             Style extraStyle = Style.EMPTY.withColor(TextColor.fromRgb(StatusIcon.sprite(extra).accentRgb()));
             out.append(new TextComponent(" " + StatusIcon.symbol(PlayerStatus.of(Activity.NONE, extra))).setStyle(extraStyle));
         }
-        out.append(new TextComponent("]").withStyle(ChatFormatting.DARK_GRAY));
+        out.append(new TextComponent("]").withStyle(ChatFormatting.GRAY));
         return out;
     }
 }

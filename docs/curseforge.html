@@ -1,13 +1,54 @@
 <p><img src="https://raw.githubusercontent.com/Shamanalle/player-statuses/main/docs/images/banner.png" alt="Player Statuses: see what other players are up to" /></p>
-<p><strong>See what other players are up to.</strong> A small icon above a player's head shows when they are <strong>typing</strong>, have their <strong>inventory or a chest open</strong>, are <strong>AFK</strong> (with a timer) or have <strong>tabbed out</strong>, and the same shows in the player list.</p>
+
+<p><strong>See what other players are up to &mdash; cleanly, privately, and with zero lag.</strong></p>
+
+<p><strong>Player Statuses</strong> draws a crisp dark-slate badge above a player's name tag (and a compact indicator in the <strong>Tab</strong> player list) whenever they are <strong>typing in chat</strong>, browsing their <strong>inventory or a container</strong>, using a <strong>workstation</strong>, <strong>reading</strong>, <strong>AFK</strong> (with a live idle timer), <strong>tabbed out</strong>, or muted in <strong>Simple Voice Chat</strong>.</p>
+
+<p><img src="https://raw.githubusercontent.com/Shamanalle/player-statuses/main/docs/images/gallery/store-typing.png" alt="Typing indicator above a player's head" /></p>
+
+<h2>Why Player Statuses?</h2>
 <ul>
-  <li><strong>Privacy first:</strong> the text you type is never sent, and every kind of status has its own privacy switch.</li>
-  <li><strong>Lightweight:</strong> icons only &mdash; no copy of anyone's screen is sent or drawn, so it stays light on the network and on your frame rate.</li>
-  <li><strong>Broad support:</strong> an alternative to <em>What Are They Up To</em> (WATUT) for <strong>1.16.5 &ndash; 26.3</strong> on <strong>Fabric, Quilt, Forge and NeoForge</strong>, with a plugin for <strong>Paper, Purpur, Folia and Spigot</strong> servers that also shows statuses to vanilla clients.</li>
+  <li><strong>Privacy first:</strong> the text you type is <em>never</em> sent over the network &mdash; only a 5-byte status code. Every status category has its own outgoing privacy switch and incoming visibility switch.</li>
+  <li><strong>Ultra-lightweight alternative to <em>What Are They Up To</em> (WATUT):</strong> instead of streaming copies of players' screens over the network, Player Statuses sends tiny binary state updates and renders clean pixel-art badges in the name-tag pass &mdash; zero packet bloat, zero screen flicker, and negligible FPS cost.</li>
+  <li><strong>True universal JARs (1.16.5 &ndash; 26.3):</strong> one JAR covers every Fabric &amp; Quilt release from 1.16.5 to 26.3, and one JAR covers every Forge &amp; NeoForge release from 1.16.5 to 26.3.</li>
+  <li><strong>Works with Paper / Purpur / Folia / Spigot servers &amp; vanilla clients:</strong> install the companion Bukkit plugin (or the server mod) and even players without the mod get server-side AFK + container detection, overhead <code>TextDisplay</code> badges (1.19.4+) and localized Tab-list statuses.</li>
+  <li><strong>Shader &amp; nametag-mod friendly:</strong> rendered directly in Minecraft's name-tag pass so Iris, Oculus, Figura, Customizable Player Models and Nametag Tweaks work out of the box.</li>
 </ul>
-<h3>Which file do I need?</h3>
+
+<h2>Statuses &amp; Visual Details</h2>
 <ul>
-  <li><strong>Fabric / Quilt</strong> (needs Fabric API): Minecraft 1.16.5 &ndash; 26.3 (one universal jar)</li>
-  <li><strong>Forge / NeoForge</strong>: Forge 1.16.5, 1.17.1 &ndash; 26.3; NeoForge 1.20.1 &ndash; 26.3 (one universal jar)</li>
+  <li><strong>Chat &amp; Commands:</strong> animated <em>Typing&hellip;</em> bubble, open chat, and <em>Command&hellip;</em> indicator.</li>
+  <li><strong>Inventories &amp; Workstations:</strong> player inventory, crafting/stonecutter/loom/smithing, chests/barrels/shulkers, furnaces/brewing stands, enchanting/beacons, anvils/grindstones, villager trading.</li>
+  <li><strong>Reading &amp; Menus:</strong> books/lecterns, signs, full-screen maps, pause menu, settings, advancements, dimension loading, and other mods' screens (emote wheels such as Emotecraft, CPM, Figura, Yes Steve Model and Controlify are automatically ignored).</li>
+  <li><strong>AFK, Window Focus &amp; Voice Chat:</strong> automatic AFK timer (<code>AFK 12m</code>) + manual <code>/afk</code> command, unfocused/minimized window icon, and Simple Voice Chat muted-mic / disabled-sound badges.</li>
+  <li><strong>Subtle Arm Poses:</strong> players who are typing or looking through an inventory raise their arms naturally (toggleable in settings).</li>
 </ul>
-<p>Install the mod on the client and the mod (or the Paper/Spigot plugin) on the server. Full documentation, commands and settings: <a href="https://github.com/Shamanalle/player-statuses#readme">GitHub README</a>.</p>
+
+<p><img src="https://raw.githubusercontent.com/Shamanalle/player-statuses/main/docs/images/gallery/store-settings.png" alt="In-game settings screen with live preview" /></p>
+
+<h2>In-Game Settings &amp; Live Preview</h2>
+<p>Open the settings screen through <strong>Mod Menu</strong> (Fabric/Quilt), the <strong>Mods &rarr; Config</strong> button (Forge/NeoForge), or bind a key in <em>Options &rarr; Controls &rarr; Key Binds &rarr; Multiplayer</em>:</p>
+<ul>
+  <li><strong>Live Preview Card:</strong> preview both the overhead badge and Tab-list formatting in real time as you adjust opacity, scale, or visibility.</li>
+  <li><strong>General:</strong> AFK timeout, icon scale (50&ndash;200%), view distance (4&ndash;128 blocks), opacity (20&ndash;100%), sneak-hiding, third-person self-preview, Tab-list toggle, and arm poses.</li>
+  <li><strong>Privacy &amp; Visibility:</strong> independent per-category switches (plus one-click <em>Enable all</em> / <em>Disable all</em> and <em>Reset</em>) for what you share with others and what you see from others.</li>
+</ul>
+
+<h2>Which File Do I Need?</h2>
+<ul>
+  <li><strong>Fabric / Quilt (1.16.5 &ndash; 26.3):</strong> download the <strong>Fabric/Quilt</strong> universal JAR (requires Fabric API).</li>
+  <li><strong>Forge (1.16.5, 1.17.1 &ndash; 26.3) &amp; NeoForge (1.20.1 &ndash; 26.3):</strong> download the <strong>Forge/NeoForge</strong> universal JAR.</li>
+  <li><strong>Paper / Purpur / Folia / Spigot / Bukkit servers (1.16.5 &ndash; 26.3):</strong> install the plugin from the CurseForge Bukkit Plugins page (or GitHub Releases) into <code>plugins/</code>.</li>
+</ul>
+
+<p>Note: to see status icons in multiplayer, install the mod on your client <strong>and</strong> either the mod or the Paper/Spigot plugin on the server. Installing on one side alone is completely safe &mdash; the mod stays silent on servers that do not have it.</p>
+
+<h2>Commands &amp; Localization</h2>
+<ul>
+  <li><code>/playerstatuses</code> &mdash; shows the version, how many online players have the mod, server settings, and your current status.</li>
+  <li><code>/playerstatuses reload</code> &mdash; reloads <code>playerstatuses-server.properties</code> (operators / permission level 2).</li>
+  <li><code>/afk</code> &mdash; toggles AFK until you move or act (can be disabled in server config so other AFK plugins keep <code>/afk</code>).</li>
+  <li>Built-in translations for <strong>13 languages</strong>: English, Russian, Ukrainian, Polish, German, French, Spanish, Brazilian Portuguese, Italian, Turkish, Japanese, Korean, and Simplified Chinese.</li>
+</ul>
+
+<p>Full configuration reference, source code, and issue tracker: <a href="https://github.com/Shamanalle/player-statuses#readme">GitHub Repository</a>.</p>

@@ -30,10 +30,10 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Unit tests (statuses, network messages, relay, settings, commands, translations)
+      - name: Unit tests (statuses, network messages, relay, settings, commands, translations, band dispatch)
         run: |
           chmod +x gradlew
-          bash .github/scripts/net-retry.sh -- ./gradlew :common:test --no-daemon
+          bash .github/scripts/net-retry.sh -- ./gradlew :common:test :universal:test --no-daemon
 
       - name: Build every Minecraft target
         run: bash .github/scripts/net-retry.sh -- ./gradlew build --no-daemon

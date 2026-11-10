@@ -508,11 +508,16 @@ public final class StatusIcon {
     /** Flags to show as secondary icons on the right side of the card. */
     public static List<StatusFlag> secondaryFlags(PlayerStatus status) {
         StatusFlag primary = status.activity() == Activity.NONE ? primaryFlag(status) : null;
+        boolean hasSoundOff = status.has(StatusFlag.SOUND_OFF);
         List<StatusFlag> out = new ArrayList<>(4);
         for (StatusFlag f : StatusFlag.values()) {
-            if (status.has(f) && f != primary) {
-                out.add(f);
+            if (!status.has(f) || f == primary) {
+                continue;
             }
+            if (f == StatusFlag.MIC_OFF && hasSoundOff) {
+                continue;
+            }
+            out.add(f);
         }
         return Collections.unmodifiableList(out);
     }
@@ -575,14 +580,21 @@ public final class StatusIcon {
         return "\u2022";
     }
 
+    /** ARGB badge text colour scaled by {@code opacityPct} (0–100). */
+    public static int textColor(int opacityPct) {
+        int alpha = Math.max(4, Math.min(255, Math.round(255f * opacityPct / 100f)));
+        return (alpha << 24) | 0xF5F7FA;
+    }
+
     /** Computes the card layout for a status and its rendered text width. */
     public static CardLayout layout(PlayerStatus status, int textWidth, int opacityPct) {
         List<StatusFlag> extra = secondaryFlags(status);
         int extraWidth = extra.size() * (SPRITE_SIZE + 2);
-        int innerWidth = 3 + SPRITE_SIZE + (textWidth > 0 ? 3 + textWidth : 0) + (extraWidth > 0 ? 2 + extraWidth : 0) + 3;
+        int extraPad = extraWidth > 0 ? (textWidth > 0 ? 5 + extraWidth : 2 + extraWidth) : 0;
+        int innerWidth = 4 + SPRITE_SIZE + (textWidth > 0 ? 3 + textWidth : 0) + extraPad + 3;
         float x0 = -innerWidth / 2.0f;
         float x1 = x0 + innerWidth;
-        float textX = x0 + 3 + SPRITE_SIZE + 3;
+        float textX = x0 + 4 + SPRITE_SIZE + 3;
         float textY = CARD_Y0 + 3;
         int alpha = Math.max(0, Math.min(255, Math.round(255f * opacityPct / 100f)));
         int textArgb = (alpha << 24) | 0xF5F7FA;
@@ -599,40 +611,57 @@ public final class StatusIcon {
         if (alpha <= 0) {
             return l;
         }
-        int bgAlpha = Math.min(255, Math.round(alpha * 0.86f));
-        int borderAlpha = Math.min(255, Math.round(alpha * 0.95f));
-        int bg = (bgAlpha << 24) | 0x12151E;
-        int border = (borderAlpha << 24) | (l.accentRgb & 0xffffff);
+        int shadowAlpha = Math.min(255, Math.round(alpha * 0.40f));
+        int bgAlpha = Math.min(255, Math.round(alpha * 0.88f));
+        int frameAlpha = Math.min(255, Math.round(alpha * 0.92f));
+        int accentAlpha = Math.min(255, Math.round(alpha * 0.98f));
+        int sepAlpha = Math.min(255, Math.round(alpha * 0.28f));
+
+        int shadow = (shadowAlpha << 24) | 0x05070C;
+        int bg = (bgAlpha << 24) | 0x10131C;
+        int frame = (frameAlpha << 24) | 0x2B3348;
+        int accent = (accentAlpha << 24) | (l.accentRgb & 0xffffff);
+        int sep = (sepAlpha << 24) | 0xDCE4F2;
+
+        // Subtle 1px drop shadow under pill for readability against bright skies/snow
+        sink.rect(l.x0 + 1, l.y1, l.x1 - 1, l.y1 + 1, shadow);
 
         // Rounded pixel pill background
         sink.rect(l.x0 + 1, l.y0, l.x1 - 1, l.y1, bg);
         sink.rect(l.x0, l.y0 + 1, l.x0 + 1, l.y1 - 1, bg);
         sink.rect(l.x1 - 1, l.y0 + 1, l.x1, l.y1 - 1, bg);
 
-        // Crisp 1px top/bottom/left accent frame
-        sink.rect(l.x0 + 1, l.y0, l.x1 - 1, l.y0 + 1, border);
-        sink.rect(l.x0 + 1, l.y1 - 1, l.x1 - 1, l.y1, border);
-        sink.rect(l.x0, l.y0 + 1, l.x0 + 2, l.y1 - 1, border);
-        sink.rect(l.x1 - 1, l.y0 + 1, l.x1, l.y1 - 1, border);
+        // Crisp 1px slate frame + 2px left status-colour accent bar
+        sink.rect(l.x0 + 1, l.y0, l.x1 - 1, l.y0 + 1, frame);
+        sink.rect(l.x0 + 1, l.y1 - 1, l.x1 - 1, l.y1, frame);
+        sink.rect(l.x1 - 1, l.y0 + 1, l.x1, l.y1 - 1, frame);
+        sink.rect(l.x0, l.y0 + 1, l.x0 + 2, l.y1 - 1, accent);
+        sink.rect(l.x0 + 1, l.y0, l.x0 + 3, l.y0 + 1, accent);
+        sink.rect(l.x0 + 1, l.y1 - 1, l.x0 + 3, l.y1, accent);
 
         // Primary 10x10 sprite
-        float iconX = l.x0 + 3;
+        float iconX = l.x0 + 4;
         float iconY = l.y0 + 2;
         primarySprite(status).draw(sink, iconX, iconY, 1.0f, alpha);
 
-        // Subtle typing dot animation on top of the typing speech bubble
+        // Animated 3-dot wave on top of the typing speech bubble
         if (status.activity() == Activity.TYPING) {
-            int dot = (int) ((Math.max(0L, nowMillis) / 280L) % 3L);
-            int highlight = (alpha << 24) | 0x4FC3F7;
-            float dx = iconX + 2 + dot * 3;
+            int dot = (int) ((Math.max(0L, nowMillis) / 240L) % 3L);
+            int highlight = (alpha << 24) | 0x7CE0FF;
+            float dx = iconX + 2 + dot * 2;
             sink.rect(dx, iconY + 3, dx + 1, iconY + 5, highlight);
         }
 
-        // Secondary flag sprites on the right side
-        float fx = l.x1 - 3 - l.extraFlags.size() * (SPRITE_SIZE + 2) + 2;
-        for (StatusFlag flag : l.extraFlags) {
-            sprite(flag).draw(sink, fx, iconY, 1.0f, alpha);
-            fx += SPRITE_SIZE + 2;
+        // Secondary flag sprites on the right side (with a subtle divider when text is present)
+        if (!l.extraFlags.isEmpty()) {
+            float fx = l.x1 - 3 - l.extraFlags.size() * (SPRITE_SIZE + 2) + 2;
+            if (textWidth > 0) {
+                sink.rect(fx - 3, l.y0 + 3, fx - 2, l.y1 - 3, sep);
+            }
+            for (StatusFlag flag : l.extraFlags) {
+                sprite(flag).draw(sink, fx, iconY, 1.0f, alpha);
+                fx += SPRITE_SIZE + 2;
+            }
         }
         return l;
     }

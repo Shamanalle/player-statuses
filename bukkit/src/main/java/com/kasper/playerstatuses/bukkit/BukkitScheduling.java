@@ -14,13 +14,20 @@ final class BukkitScheduling implements Scheduling {
 
     @Override
     public void everyTick(Runnable tick) {
-        plugin.getServer().getScheduler().runTaskTimer(plugin, tick, 1L, 1L);
+        if (plugin.isEnabled()) {
+            plugin.getServer().getScheduler().runTaskTimer(plugin, tick, 1L, 1L);
+        }
     }
 
     @Override
     public void runOnEntity(Entity entity, Runnable task) {
-        if (entity != null) {
+        if (entity == null) {
+            return;
+        }
+        if (plugin.getServer().isPrimaryThread()) {
             task.run();
+        } else if (plugin.isEnabled()) {
+            plugin.getServer().getScheduler().runTask(plugin, task);
         }
     }
 

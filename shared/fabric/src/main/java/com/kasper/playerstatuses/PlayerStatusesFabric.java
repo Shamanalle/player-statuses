@@ -5,6 +5,7 @@ import com.kasper.playerstatuses.server.ServerSide;
 import com.kasper.playerstatuses.server.StatusCommand;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -42,5 +43,6 @@ public class PlayerStatusesFabric implements ModInitializer {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> StatusCommand.register(dispatcher));
         ServerTickEvents.END_SERVER_TICK.register(ServerSide::tick);
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> ServerSide.left(handler.player));
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> ServerSide.stop());
     }
 }

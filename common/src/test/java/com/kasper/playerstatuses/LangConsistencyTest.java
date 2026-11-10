@@ -27,7 +27,9 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class LangConsistencyTest {
 
-    private static final Path ROOT = Path.of("..").toAbsolutePath().normalize();
+    private static final Path ROOT = Files.isDirectory(Path.of("common"))
+            ? Path.of(".").toAbsolutePath().normalize()
+            : Path.of("..").toAbsolutePath().normalize();
     private static final Path LANG = ROOT.resolve("common/src/main/resources/assets/playerstatuses/lang");
 
     private static Map<String, String> english;

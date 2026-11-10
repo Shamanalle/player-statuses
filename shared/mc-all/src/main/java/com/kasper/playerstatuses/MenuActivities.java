@@ -75,6 +75,9 @@ public final class MenuActivities {
             return Activity.BOOK;
         }
         String name = menu.getClass().getName();
+        if (name.equals("net.minecraft.world.inventory.CrafterMenu")) {
+            return Activity.CRAFTING;
+        }
         if (name.startsWith("net.minecraft.")) {
             return Activity.CONTAINER;
         }

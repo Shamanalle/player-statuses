@@ -133,7 +133,7 @@ final class BandTable {
 
     /** A Maven version range as mods.toml writes it: "[1.21,1.21.2)", "[61,)", several joined by commas. */
     static boolean matches(String spec, String version) {
-        if (spec == null) {
+        if (spec == null || version == null) {
             return false;
         }
         spec = spec.trim();
@@ -143,10 +143,24 @@ final class BandTable {
         int i = 0;
         while (i < spec.length()) {
             char open = spec.charAt(i);
+            if (open != '[' && open != '(') {
+                int comma = spec.indexOf(',', i);
+                String bare = (comma < 0 ? spec.substring(i) : spec.substring(i, comma)).trim();
+                if (!bare.isEmpty() && compareForBound(version, bare, true) >= 0) {
+                    return true;
+                }
+                if (comma < 0) {
+                    return false;
+                }
+                i = comma + 1;
+                while (i < spec.length() && (spec.charAt(i) == ',' || spec.charAt(i) == ' ')) {
+                    i++;
+                }
+                continue;
+            }
             int close = indexOfAny(spec, i + 1);
-            if ((open != '[' && open != '(') || close < 0) {
-                // A bare version: Maven reads it as "at least"
-                return compare(version, spec) >= 0;
+            if (close < 0) {
+                return compareForBound(version, spec.substring(i), true) >= 0;
             }
             String[] bounds = spec.substring(i + 1, close).split(",", -1);
             boolean inside;
@@ -155,8 +169,9 @@ final class BandTable {
             } else {
                 String low = bounds[0].trim();
                 String high = bounds[1].trim();
-                inside = (low.isEmpty() || (open == '[' ? compare(version, low) >= 0 : compare(version, low) > 0))
-                        && (high.isEmpty() || (spec.charAt(close) == ']' ? compare(version, high) <= 0 : compare(version, high) < 0));
+                boolean closeInc = spec.charAt(close) == ']';
+                inside = (low.isEmpty() || (open == '[' ? compareForBound(version, low, true) >= 0 : compare(version, low) > 0))
+                        && (high.isEmpty() || (closeInc ? compare(version, high) <= 0 : compareForBound(version, high, false) < 0));
             }
             if (inside) {
                 return true;
@@ -167,6 +182,28 @@ final class BandTable {
             }
         }
         return false;
+    }
+
+    /**
+     * When a range bound has no pre-release qualifier (e.g. "[21.11,)" or "[1.21,1.21.2)"), pre-releases of
+     * the lower bound ("21.11.0-beta") belong inside the band, whereas pre-releases of an exclusive upper
+     * bound ("1.21.2-rc1") belong to the next band rather than the previous one.
+     */
+    private static int compareForBound(String version, String bound, boolean inclusiveLowerOrExcludeUpper) {
+        if (bound.indexOf('-') < 0) {
+            String vClean = stripBuild(version);
+            int dashV = vClean.indexOf('-');
+            if (dashV >= 0 && !startsWithDigit(vClean.substring(dashV + 1))) {
+                return compareParts(vClean.substring(0, dashV), stripBuild(bound));
+            }
+        }
+        return compare(version, bound);
+    }
+
+    private static String stripBuild(String s) {
+        s = s.trim();
+        int plus = s.indexOf('+');
+        return plus < 0 ? s : s.substring(0, plus);
     }
 
     private static int indexOfAny(String s, int from) {
@@ -210,26 +247,68 @@ final class BandTable {
         return compareParts(restA, restB);
     }
 
-    /** Dot- or dash-separated parts: numbers as numbers, a missing number is 0, a number beats a word. */
+    /** Dot-, dash-, or letter/digit-separated parts: numbers as numbers, missing number is 0, number beats word. */
     private static int compareParts(String a, String b) {
-        String[] x = a.split("[.\\-]");
-        String[] y = b.split("[.\\-]");
-        for (int i = 0; i < Math.max(x.length, y.length); i++) {
-            String p = i < x.length ? x[i] : "0";
-            String q = i < y.length ? y[i] : "0";
+        List<String> x = tokens(a);
+        List<String> y = tokens(b);
+        for (int i = 0; i < Math.max(x.size(), y.size()); i++) {
+            String p = i < x.size() ? x.get(i) : "0";
+            String q = i < y.size() ? y.get(i) : "0";
             int c;
             if (isNumber(p) && isNumber(q)) {
                 c = Long.compare(Long.parseLong(p), Long.parseLong(q));
             } else if (isNumber(p) != isNumber(q)) {
                 c = isNumber(p) ? 1 : -1;
             } else {
-                c = p.compareToIgnoreCase(q);
+                int rp = qualifierRank(p);
+                int rq = qualifierRank(q);
+                c = (rp != rq) ? Integer.compare(rp, rq) : p.compareToIgnoreCase(q);
             }
             if (c != 0) {
                 return c;
             }
         }
         return 0;
+    }
+
+    private static List<String> tokens(String s) {
+        List<String> out = new ArrayList<>();
+        int start = -1;
+        boolean prevDigit = false;
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if (ch == '.' || ch == '-' || ch == '_') {
+                if (start >= 0) {
+                    out.add(s.substring(start, i));
+                    start = -1;
+                }
+                continue;
+            }
+            boolean digit = Character.isDigit(ch);
+            if (start < 0) {
+                start = i;
+                prevDigit = digit;
+            } else if (digit != prevDigit) {
+                out.add(s.substring(start, i));
+                start = i;
+                prevDigit = digit;
+            }
+        }
+        if (start >= 0) {
+            out.add(s.substring(start));
+        }
+        return out;
+    }
+
+    private static int qualifierRank(String q) {
+        String s = q.toLowerCase(java.util.Locale.ROOT);
+        if (s.equals("snapshot")) return 0;
+        if (s.equals("alpha") || s.equals("a")) return 1;
+        if (s.equals("beta") || s.equals("b")) return 2;
+        if (s.equals("milestone") || s.equals("m")) return 3;
+        if (s.equals("pre")) return 4;
+        if (s.equals("rc") || s.equals("cr")) return 5;
+        return 6;
     }
 
     private static boolean startsWithDigit(String s) {

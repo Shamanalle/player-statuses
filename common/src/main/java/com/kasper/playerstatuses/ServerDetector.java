@@ -75,6 +75,35 @@ public final class ServerDetector {
     }
 
     /**
+     * Records only head rotation while riding a vehicle so passive boat, horse, or minecart motion
+     * does not reset idle time, while looking around still counts as player activity.
+     */
+    public void onHeadPose(UUID player, float yaw, float pitch, StatusRelay relay, long now) {
+        if (player == null) {
+            return;
+        }
+        PlayerState s = states.computeIfAbsent(player, id -> new PlayerState(now));
+        boolean moved = false;
+        synchronized (s) {
+            if (Float.isNaN(s.yaw)) {
+                s.yaw = yaw;
+                s.pitch = pitch;
+                s.lastActedAt = now;
+                return;
+            }
+            if (Math.abs(yaw - s.yaw) > 0.5f || Math.abs(pitch - s.pitch) > 0.5f) {
+                s.yaw = yaw;
+                s.pitch = pitch;
+                s.lastActedAt = now;
+                moved = true;
+            }
+        }
+        if (moved && relay != null) {
+            relay.onActed(player, now);
+        }
+    }
+
+    /**
      * Records an explicit player action (chat, command other than {@code /afk}, block interaction,
      * inventory click, or arm swing).
      */

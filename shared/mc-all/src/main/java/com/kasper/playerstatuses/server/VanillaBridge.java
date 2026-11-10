@@ -13,13 +13,16 @@ import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.Team;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.RecordComponent;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -36,6 +39,8 @@ import java.util.UUID;
 public final class VanillaBridge {
 
     public static final String OVERHEAD_TAG = "playerstatuses.overhead";
+    private static final String TAB_INSERTION_TAG = "playerstatuses";
+    private static final int JOIN_GRACE_TICKS = 20;
 
     private static final Method SET_TEXT = findMethod(Display.TextDisplay.class, Component.class);
     private static final Method SET_BILLBOARD = findMethod(Display.class, Display.BillboardConstraints.class);
@@ -66,7 +71,7 @@ public final class VanillaBridge {
 
         boolean hasVanillaViewer = false;
         for (ServerPlayer p : players) {
-            if (!relay.hasMod(p.getUUID())) {
+            if (!relay.hasMod(p.getUUID()) && p.tickCount >= JOIN_GRACE_TICKS) {
                 hasVanillaViewer = true;
                 break;
             }
@@ -75,10 +80,14 @@ public final class VanillaBridge {
         tickOverheads(players, relay, settings, hasVanillaViewer, now);
         tickTabList(players, relay, settings, now);
 
-        if (++tickCounter % 20 == 0) {
+        int count = ++tickCounter;
+        if (count % 20 == 0) {
             for (OverheadEntry e : OVERHEADS.values()) {
                 e.hiddenFrom.clear();
             }
+        }
+        if (count % 100 == 1) {
+            purgeOrphansAround(players);
         }
     }
 
@@ -86,6 +95,9 @@ public final class VanillaBridge {
         OverheadEntry entry = OVERHEADS.remove(playerId);
         if (entry != null && !entry.display.isRemoved()) {
             entry.display.discard();
+        }
+        for (OverheadEntry e : OVERHEADS.values()) {
+            e.hiddenFrom.remove(playerId);
         }
         SENT_TAB_NAMES.remove(playerId);
         for (Map<UUID, String> map : SENT_TAB_NAMES.values()) {
@@ -134,12 +146,14 @@ public final class VanillaBridge {
             UUID id = target.getUUID();
             onlineIds.add(id);
             PlayerStatus status = relay.current(id, now);
+            Team targetTeam = target.getTeam();
+            boolean teamAllowsAny = targetTeam == null || targetTeam.getNameTagVisibility() != Team.Visibility.NEVER;
             boolean show = !status.isNone()
+                    && teamAllowsAny
                     && target.isAlive()
                     && !target.isSpectator()
                     && !target.isInvisible()
                     && !target.isDiscrete()
-                    && !target.isPassenger()
                     && !target.isVehicle();
 
             OverheadEntry entry = OVERHEADS.get(id);
@@ -182,10 +196,11 @@ public final class VanillaBridge {
             }
 
             for (ServerPlayer viewer : players) {
-                if (viewer == target || relay.hasMod(viewer.getUUID())) {
-                    if (viewer.level() == target.level() && entry.hiddenFrom.add(viewer.getUUID())) {
-                        viewer.connection.send(new ClientboundRemoveEntitiesPacket(entry.display.getId()));
-                    }
+                boolean hide = viewer == target
+                        || relay.hasMod(viewer.getUUID())
+                        || !canViewerSeeNameTag(targetTeam, viewer.getTeam());
+                if (hide && viewer.level() == target.level() && entry.hiddenFrom.add(viewer.getUUID())) {
+                    viewer.connection.send(new ClientboundRemoveEntitiesPacket(entry.display.getId()));
                 }
             }
         }
@@ -201,6 +216,49 @@ public final class VanillaBridge {
         }
     }
 
+    private static void purgeOrphansAround(List<ServerPlayer> players) {
+        if (players.isEmpty()) {
+            return;
+        }
+        Set<Entity> active = new HashSet<>(OVERHEADS.size());
+        for (OverheadEntry e : OVERHEADS.values()) {
+            active.add(e.display);
+        }
+        List<Entity> orphans = new ArrayList<>();
+        for (ServerPlayer p : players) {
+            List<Entity> nearby = p.level().getEntities((Entity) null, p.getBoundingBox().inflate(24.0),
+                    entity -> entity != null && !active.contains(entity) && !entity.isRemoved()
+                            && entity.removeTag(OVERHEAD_TAG));
+            orphans.addAll(nearby);
+        }
+        for (Entity orphan : orphans) {
+            if (!orphan.isRemoved()) {
+                orphan.discard();
+            }
+        }
+    }
+
+    private static boolean canViewerSeeNameTag(Team targetTeam, Team viewerTeam) {
+        if (targetTeam == null) {
+            return true;
+        }
+        Team.Visibility vis = targetTeam.getNameTagVisibility();
+        if (vis == Team.Visibility.ALWAYS) {
+            return true;
+        }
+        if (vis == Team.Visibility.NEVER) {
+            return false;
+        }
+        boolean sameTeam = viewerTeam != null && targetTeam.isAlliedTo(viewerTeam);
+        if (vis == Team.Visibility.HIDE_FOR_OTHER_TEAMS) {
+            return sameTeam;
+        }
+        if (vis == Team.Visibility.HIDE_FOR_OWN_TEAM) {
+            return !sameTeam;
+        }
+        return true;
+    }
+
     private static void tickTabList(
             List<ServerPlayer> players,
             StatusRelay relay,
@@ -212,7 +270,7 @@ public final class VanillaBridge {
 
         for (ServerPlayer viewer : players) {
             UUID viewerId = viewer.getUUID();
-            if (!enabled || relay.hasMod(viewerId)) {
+            if (!enabled || relay.hasMod(viewerId) || viewer.tickCount < JOIN_GRACE_TICKS) {
                 Map<UUID, String> prevMap = SENT_TAB_NAMES.remove(viewerId);
                 if (prevMap != null && !prevMap.isEmpty()) {
                     for (ServerPlayer target : players) {
@@ -249,7 +307,8 @@ public final class VanillaBridge {
                         base = PlayerTeam.formatNameForTeam(target.getTeam(), target.getName());
                     }
                     Component decorated = base.copy().append(
-                            Component.literal(" [" + desc + "]").withStyle(ChatFormatting.GRAY));
+                            Component.literal(" [" + desc + "]")
+                                    .withStyle(s -> s.withColor(ChatFormatting.GRAY).withInsertion(TAB_INSERTION_TAG)));
                     sendTabDisplayName(viewer, target, decorated);
                 }
             }

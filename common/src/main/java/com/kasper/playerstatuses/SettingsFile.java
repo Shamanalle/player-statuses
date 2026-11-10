@@ -129,10 +129,21 @@ public class SettingsFile {
         return Collections.unmodifiableList(out);
     }
 
+    private static final class Snapshot {
+        final Map<String, Object> values;
+        final List<String> problems;
+
+        Snapshot(Map<String, Object> values, List<String> problems) {
+            this.values = Collections.unmodifiableMap(new LinkedHashMap<>(values));
+            this.problems = Collections.unmodifiableList(new ArrayList<>(problems));
+        }
+    }
+
     private final String header;
     private final List<Key<?>> keys;
     private final Map<String, Object> values = new LinkedHashMap<>();
     private final List<String> problems = new ArrayList<>();
+    private volatile Snapshot snapshot;
     private Path path;
     private long loadedModified = Long.MIN_VALUE;
 
@@ -142,6 +153,7 @@ public class SettingsFile {
         for (Key<?> k : keys) {
             values.put(k.id(), k.def());
         }
+        this.snapshot = new Snapshot(values, problems);
     }
 
     public List<Key<?>> keys() {
@@ -150,20 +162,30 @@ public class SettingsFile {
 
     @SuppressWarnings("unchecked")
     public <T> T get(Key<T> key) {
-        Object v = values.get(key.id());
+        Object v = snapshot.values.get(key.id());
         return v == null ? key.def() : (T) v;
     }
 
     public synchronized <T> void set(Key<T> key, T value) {
         values.put(key.id(), value);
+        snapshot = new Snapshot(values, problems);
+    }
+
+    /** Restores every known setting to its default value in memory; call {@link #save()} to persist. */
+    public synchronized void resetDefaults() {
+        for (Key<?> k : keys) {
+            values.put(k.id(), k.def());
+        }
+        problems.clear();
+        snapshot = new Snapshot(values, problems);
     }
 
     /** Lines about values that could not be read in the last load, for the log. */
     public List<String> problems() {
-        return Collections.unmodifiableList(problems);
+        return snapshot.problems;
     }
 
-    public Path path() {
+    public synchronized Path path() {
         return path;
     }
 
@@ -178,6 +200,7 @@ public class SettingsFile {
             } catch (IOException e) {
                 problems.clear();
                 problems.add("Could not read " + file + ": " + e);
+                snapshot = new Snapshot(values, problems);
                 return;
             }
         }
@@ -189,6 +212,7 @@ public class SettingsFile {
         if (!exists || missing) {
             save(props);
         }
+        snapshot = new Snapshot(values, problems);
         loadedModified = modified(file);
     }
 
@@ -218,6 +242,7 @@ public class SettingsFile {
             props.setProperty(k.id(), formatValue(k));
         }
         save(props);
+        snapshot = new Snapshot(values, problems);
         loadedModified = modified(path);
     }
 
@@ -237,6 +262,7 @@ public class SettingsFile {
                 values.put(k.id(), v);
             }
         }
+        snapshot = new Snapshot(values, problems);
     }
 
     /** The file's text: the header, then each key with its comment; keys the file had but we do not know at the end. */
@@ -267,7 +293,7 @@ public class SettingsFile {
         if (!others.isEmpty()) {
             b.append('\n');
             for (String name : others) {
-                b.append(name).append('=').append(escape(existing.getProperty(name))).append('\n');
+                b.append(escapeKey(name)).append('=').append(escape(existing.getProperty(name))).append('\n');
             }
         }
         return b.toString();
@@ -278,7 +304,15 @@ public class SettingsFile {
             if (path.getParent() != null) {
                 Files.createDirectories(path.getParent());
             }
-            Files.write(path, render(existing).getBytes(StandardCharsets.UTF_8));
+            byte[] bytes = render(existing).getBytes(StandardCharsets.UTF_8);
+            Path tmp = path.resolveSibling(path.getFileName().toString() + ".tmp");
+            Files.write(tmp, bytes);
+            try {
+                Files.move(tmp, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException atomicUnsupported) {
+                Files.move(tmp, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException e) {
             problems.add("Could not write " + path + ": " + e);
         }
@@ -291,6 +325,24 @@ public class SettingsFile {
 
     private static <T> String formatDefault(Key<T> k) {
         return k.format(k.def());
+    }
+
+    static String escapeKey(String key) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < key.length(); i++) {
+            char c = key.charAt(i);
+            switch (c) {
+                case '\\' -> b.append("\\\\");
+                case ' ' -> b.append("\\ ");
+                case '=' -> b.append("\\=");
+                case ':' -> b.append("\\:");
+                case '\n' -> b.append("\\n");
+                case '\r' -> b.append("\\r");
+                case '\t' -> b.append("\\t");
+                default -> b.append(c);
+            }
+        }
+        return b.toString();
     }
 
     /** Escapes what Properties would misread; everything else (any language) is written as it is. */

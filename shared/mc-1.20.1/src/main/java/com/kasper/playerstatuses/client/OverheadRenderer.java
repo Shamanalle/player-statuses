@@ -66,7 +66,9 @@ public final class OverheadRenderer {
         poseStack.mulPose(mc.getEntityRenderDispatcher().cameraOrientation());
         poseStack.scale(-scale, -scale, scale);
 
-        float yShift = hasNameTag ? -12.0f : 0.0f;
+        boolean hasScore = hasNameTag && player.distanceToSqr(mc.player) < 100.0 && player.getScoreboard().getDisplayObjective(2) != null;
+        boolean hasEars = hasNameTag && "deadmau5".equals(player.getName().getString());
+        float yShift = (hasNameTag ? (hasScore ? -22.0f : -12.0f) : 0.0f) + (hasEars ? -10.0f : 0.0f);
         poseStack.translate(0.0f, yShift, 0.0f);
 
         Matrix4f mat = poseStack.last().pose();
@@ -74,7 +76,7 @@ public final class OverheadRenderer {
         AtomicInteger idx = new AtomicInteger();
         StatusIcon.CardLayout layout = StatusIcon.drawCard(
                 (x0, y0, x1, y1, argb) -> {
-                    float z = -0.05f + idx.getAndIncrement() * 0.0005f;
+                    float z = 0.05f - idx.getAndIncrement() * 0.00015f;
                     int a = (argb >>> 24) & 0xff;
                     int r = (argb >>> 16) & 0xff;
                     int g = (argb >>> 8) & 0xff;

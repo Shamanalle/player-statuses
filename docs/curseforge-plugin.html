@@ -1,8 +1,34 @@
-<p><img src="https://raw.githubusercontent.com/Shamanalle/player-statuses/main/docs/images/banner.png" alt="Player Statuses: see what other players are up to" /></p>
-<p><strong>Server plugin for Player Statuses (Paper, Purpur, Folia, Spigot, Bukkit 1.16.5 &ndash; 26.3).</strong></p>
+<p><img src="https://raw.githubusercontent.com/Shamanalle/player-statuses/main/docs/images/banner.png" alt="Player Statuses: server plugin for Paper, Purpur, Folia and Spigot" /></p>
+
+<p><strong>Official server plugin for Player Statuses &mdash; one lightweight JAR for Paper, Purpur, Folia, Spigot, and Bukkit (Minecraft 1.16.5 &ndash; 26.3, Java 8+).</strong></p>
+
+<h2>What Does This Plugin Do?</h2>
 <ul>
-  <li>Relays status icons (typing, inventory, chests, crafting, AFK timer, tabbed out, voice chat state) between players who have the <strong>Player Statuses</strong> client mod on Fabric, Quilt, Forge or NeoForge.</li>
-  <li><strong>Works for vanilla clients too:</strong> detects AFK and open containers on the server side and displays statuses above players' heads (1.19.4+ <code>TextDisplay</code>) and in the Tab player list, localized in each player's game language.</li>
-  <li><strong>Folia-ready</strong> and works on every Bukkit/Spigot/Paper server from 1.16.5 to 26.3 on Java 8+.</li>
+  <li><strong>Full relay for modded clients:</strong> relays real-time status icons (typing, command entry, inventory, containers, workstations, reading, AFK timer, unfocused window, and Simple Voice Chat mute/deafen icons) between players running the <strong>Player Statuses</strong> client mod on Fabric, Quilt, Forge, or NeoForge.</li>
+  <li><strong>Built-in bridge for vanilla clients:</strong> players without the mod are not left out! The server automatically detects AFK time and open containers (chests, barrels, shulker boxes, crafting tables, furnaces, enchanting tables, anvils, villagers, lecterns) for unmodded players and displays statuses to vanilla clients via:
+    <ul>
+      <li>Overhead <code>TextDisplay</code> labels above players' heads on <strong>Minecraft 1.19.4+</strong> (automatically hidden from modded players so badges never double up, and respecting sneaking, invisibility, spectator mode, and scoreboard team nametag visibility).</li>
+      <li>Clean status suffixes in the <strong>Tab player list</strong> across <strong>1.16.5 &ndash; 26.3</strong>.</li>
+    </ul>
+  </li>
+  <li><strong>Native Folia &amp; Vanish support:</strong> uses region-safe entity scheduling on Folia and respects vanish plugins (<code>SuperVanish</code>, <code>PremiumVanish</code>, <code>EssentialsX</code>, <code>CMI</code>, and <code>Player#canSee</code>) so vanished staff never leak statuses or overhead entities.</li>
 </ul>
-<p>Commands, permissions and configuration: <a href="https://github.com/Shamanalle/player-statuses#readme">GitHub README</a>.</p>
+
+<h2>Commands &amp; Permissions</h2>
+<ul>
+  <li><code>/playerstatuses</code> &mdash; shows plugin version, modded player count, active server settings, and your current status (localized in each player's own game language across 13 supported languages).</li>
+  <li><code>/playerstatuses reload</code> (permission: <code>playerstatuses.admin</code>, default: <code>op</code>) &mdash; reloads <code>plugins/PlayerStatuses/playerstatuses-server.properties</code> on the fly (changes are also picked up automatically within ~2 seconds).</li>
+  <li><code>/afk</code> (permission: <code>playerstatuses.afk</code>, default: <code>true</code>) &mdash; marks the player AFK until they move or act. Registered dynamically only when <code>afk_command=true</code>, so setting <code>afk_command=false</code> leaves EssentialsX or CMI's <code>/afk</code> untouched.</li>
+</ul>
+
+<h2>Configuration (<code>plugins/PlayerStatuses/playerstatuses-server.properties</code>)</h2>
+<ul>
+  <li><code>afk_command=true</code> &mdash; enable or disable the built-in <code>/afk</code> command.</li>
+  <li><code>detect_players_without_mod=true</code> &mdash; detect AFK and open containers on the server for players without the client mod.</li>
+  <li><code>afk_minutes=5</code> &mdash; idle minutes before an unmodded player is marked AFK (1 &ndash; 120).</li>
+  <li><code>vanilla_overhead=true</code> &mdash; show overhead <code>TextDisplay</code> statuses to vanilla clients on 1.19.4+.</li>
+  <li><code>vanilla_tab_list=true</code> &mdash; show status suffixes in the Tab list when vanilla clients are online.</li>
+  <li><code>language=en_us</code> &mdash; language used for console replies and server-wide vanilla <code>TextDisplay</code> / Tab labels (13 built-in locales).</li>
+</ul>
+
+<p>Client mod downloads (Fabric, Quilt, Forge, NeoForge), source code, and issue tracker: <a href="https://github.com/Shamanalle/player-statuses#readme">GitHub Repository</a>.</p>

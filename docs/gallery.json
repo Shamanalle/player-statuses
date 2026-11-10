@@ -2,13 +2,13 @@
   {
     "file": "docs/images/gallery/store-typing.png",
     "title": "Typing in chat",
-    "description": "An animated typing indicator appears above the player's head and in the Tab list while typing in chat.",
+    "description": "An animated typing badge appears above the player's head and in the Tab list while typing in chat.",
     "featured": true
   },
   {
     "file": "docs/images/gallery/store-inventory.png",
     "title": "Inventory open",
-    "description": "Shows when a player has their survival or creative inventory open, with matching arm pose.",
+    "description": "Shows when a player has their survival or creative inventory open, with matching 3D arm pose.",
     "featured": false
   },
   {
@@ -26,7 +26,13 @@
   {
     "file": "docs/images/gallery/store-afk.png",
     "title": "AFK with a timer",
-    "description": "Shows when a player is away from the keyboard, together with how long they have been idle.",
+    "description": "Shows when a player is away from the keyboard or tabbed out, together with elapsed idle time.",
+    "featured": false
+  },
+  {
+    "file": "docs/images/gallery/store-settings.png",
+    "title": "In-game settings & live preview",
+    "description": "Configure scale, opacity, AFK timeout, and per-category privacy or visibility switches with a live preview card.",
     "featured": false
   }
 ]

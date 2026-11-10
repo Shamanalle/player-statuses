@@ -15,6 +15,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityAttachment;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.DisplaySlot;
 import org.joml.Matrix4f;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -62,7 +63,10 @@ public final class OverheadRenderer {
         poseStack.mulPose(mc.getEntityRenderDispatcher().cameraOrientation());
         poseStack.scale(scale, -scale, scale);
 
-        float yShift = hasNameTag ? -12.0f : 0.0f;
+        boolean hasScore = hasNameTag && player.distanceToSqr(mc.player) < 100.0
+                && player.getScoreboard().getDisplayObjective(DisplaySlot.BELOW_NAME) != null;
+        boolean hasEars = hasNameTag && "deadmau5".equals(player.getName().getString());
+        float yShift = (hasNameTag ? (hasScore ? -22.0f : -12.0f) : 0.0f) + (hasEars ? -10.0f : 0.0f);
         poseStack.translate(0.0f, yShift, 0.0f);
 
         Matrix4f mat = poseStack.last().pose();
@@ -70,7 +74,7 @@ public final class OverheadRenderer {
         AtomicInteger idx = new AtomicInteger();
         StatusIcon.CardLayout layout = StatusIcon.drawCard(
                 (x0, y0, x1, y1, argb) -> {
-                    float z = -0.05f + idx.getAndIncrement() * 0.0005f;
+                    float z = -0.05f + idx.getAndIncrement() * 0.00015f;
                     vc.addVertex(mat, x0, y1, z).setColor(argb).setLight(packedLight);
                     vc.addVertex(mat, x1, y1, z).setColor(argb).setLight(packedLight);
                     vc.addVertex(mat, x1, y0, z).setColor(argb).setLight(packedLight);

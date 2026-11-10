@@ -5,12 +5,14 @@ import com.kasper.playerstatuses.PlayerStatus;
 import com.kasper.playerstatuses.StatusClient;
 import com.kasper.playerstatuses.StatusIcon;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Matrix4f;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiComponent;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
@@ -20,6 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Draws the overhead status badge above a player's name tag (1.16.5–1.19.2 {@link Matrix4f} pipeline).
  */
 public final class OverheadRenderer {
+
+    private static final ResourceLocation WHITE_TEXTURE = new ResourceLocation("playerstatuses", "textures/gui/white.png");
 
     private OverheadRenderer() {
     }
@@ -66,17 +70,24 @@ public final class OverheadRenderer {
         poseStack.scale(-scale, -scale, scale);
 
         boolean hasScore = hasNameTag && player.distanceToSqr(mc.player) < 100.0 && player.getScoreboard().getDisplayObjective(2) != null;
-        float yShift = hasNameTag ? (hasScore ? -22.0f : -12.0f) : 0.0f;
+        boolean hasEars = hasNameTag && "deadmau5".equals(player.getName().getString());
+        float yShift = (hasNameTag ? (hasScore ? -22.0f : -12.0f) : 0.0f) + (hasEars ? -10.0f : 0.0f);
         poseStack.translate(0.0f, yShift, 0.0f);
 
+        Matrix4f mat = poseStack.last().pose();
+        VertexConsumer vc = bufferSource.getBuffer(RenderType.text(WHITE_TEXTURE));
         AtomicInteger idx = new AtomicInteger();
         StatusIcon.CardLayout layout = StatusIcon.drawCard(
                 (x0, y0, x1, y1, argb) -> {
-                    float z = -0.05f + idx.getAndIncrement() * 0.0005f;
-                    poseStack.pushPose();
-                    poseStack.translate(0.0, 0.0, z);
-                    GuiComponent.fill(poseStack, (int) Math.floor(x0), (int) Math.floor(y0), (int) Math.floor(x1), (int) Math.floor(y1), argb);
-                    poseStack.popPose();
+                    float z = 0.05f - idx.getAndIncrement() * 0.00015f;
+                    int a = (argb >>> 24) & 0xff;
+                    int r = (argb >>> 16) & 0xff;
+                    int g = (argb >>> 8) & 0xff;
+                    int b = argb & 0xff;
+                    vc.vertex(mat, x0, y1, z).color(r, g, b, a).uv(0.0f, 1.0f).uv2(packedLight).endVertex();
+                    vc.vertex(mat, x1, y1, z).color(r, g, b, a).uv(1.0f, 1.0f).uv2(packedLight).endVertex();
+                    vc.vertex(mat, x1, y0, z).color(r, g, b, a).uv(1.0f, 0.0f).uv2(packedLight).endVertex();
+                    vc.vertex(mat, x0, y0, z).color(r, g, b, a).uv(0.0f, 0.0f).uv2(packedLight).endVertex();
                 },
                 status,
                 textWidth,
@@ -85,7 +96,6 @@ public final class OverheadRenderer {
         );
 
         if (textWidth > 0) {
-            Matrix4f mat = poseStack.last().pose();
             font.drawInBatch(
                     label,
                     layout.textX(),

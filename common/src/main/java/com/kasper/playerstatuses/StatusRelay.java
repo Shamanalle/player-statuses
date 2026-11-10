@@ -27,14 +27,13 @@ public final class StatusRelay {
     static final double BURST = 16;
 
     private static final class Entry {
-        boolean modded;
+        volatile boolean modded;
         /** The client's report (without the idle time), or what the server detected. */
         PlayerStatus status = PlayerStatus.NONE;
         long idleSince;
-        boolean manualAfk;
+        volatile boolean manualAfk;
         long manualAfkSince;
         PlayerStatus pending;
-        int pendingIdle;
         double tokens = BURST;
         long refilledAt;
     }
@@ -58,7 +57,6 @@ public final class StatusRelay {
             refill(e, now);
             if (e.tokens < 1) {
                 e.pending = status;
-                e.pendingIdle = status.idleSeconds();
                 return true;
             }
             e.tokens -= 1;
@@ -224,6 +222,13 @@ public final class StatusRelay {
 
     private void apply(UUID player, Entry e, PlayerStatus status, long now) {
         boolean wasAfk = e.status.has(StatusFlag.AFK);
+        if (e.manualAfk
+                && !status.has(StatusFlag.AFK)
+                && status.activity() != Activity.NONE
+                && status.activity() != e.status.activity()) {
+            e.manualAfk = false;
+            markChanged(player);
+        }
         if (!status.sameState(e.status)) {
             markChanged(player);
         }
@@ -247,17 +252,28 @@ public final class StatusRelay {
     }
 
     private static void refill(Entry e, long now) {
-        long dt = Math.max(0, now - e.refilledAt);
+        if (now < e.refilledAt) {
+            e.refilledAt = now;
+            return;
+        }
+        long dt = now - e.refilledAt;
         e.tokens = Math.min(BURST, e.tokens + dt * RATE_PER_SECOND / 1000.0);
         e.refilledAt = now;
     }
 
     /** Removes players for whom {@code online} is false (a safety net if a leave event was missed). */
     public void retainOnline(java.util.function.Predicate<UUID> online) {
+        List<UUID> removed = new ArrayList<>();
         for (Iterator<UUID> it = entries.keySet().iterator(); it.hasNext(); ) {
             UUID id = it.next();
             if (!online.test(id)) {
                 it.remove();
+                removed.add(id);
+            }
+        }
+        if (!removed.isEmpty()) {
+            synchronized (changed) {
+                changed.removeAll(removed);
             }
         }
     }

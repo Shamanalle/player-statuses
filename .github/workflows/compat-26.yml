@@ -12,6 +12,7 @@ on:
     paths:
       - 'versions/fabric/26/**'
       - 'shared/fabric/**'
+      - 'shared/mc-26/**'
       - 'shared/mc-all/**'
       - 'shared/mc-1.21.11-up/**'
       - 'common/src/main/**'

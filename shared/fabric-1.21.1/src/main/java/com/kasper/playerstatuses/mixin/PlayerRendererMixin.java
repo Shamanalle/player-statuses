@@ -48,7 +48,12 @@ public abstract class PlayerRendererMixin {
             int packedLight,
             CallbackInfo ci
     ) {
-        boolean nameShown = entity.shouldShowName() && entity != Minecraft.getInstance().getCameraEntity();
+        Minecraft mc = Minecraft.getInstance();
+        var camera = mc.getCameraEntity();
+        boolean nameShown = Minecraft.renderNames()
+                && entity.shouldShowName()
+                && entity != camera
+                && (camera == null || entity.distanceToSqr(camera) <= 4096.0);
         OverheadRenderer.render(entity, nameShown, poseStack, buffer, packedLight, partialTicks);
     }
 }

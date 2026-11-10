@@ -54,7 +54,11 @@ public enum StatusArmPose {
                 main = HIGH;
                 off = LOW;
             } else {
-                boolean step = (((int) (ageInTicks * 0.5f)) & 1) == 0;
+                float wrapped = ageInTicks % 4.0f;
+                if (wrapped < 0.0f) {
+                    wrapped += 4.0f;
+                }
+                boolean step = (((int) (wrapped * 0.5f)) & 1) == 0;
                 main = step ? HIGH : LOW;
                 off = step ? LOW : HIGH;
             }

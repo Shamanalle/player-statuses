@@ -19,6 +19,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.TickEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlerEvent;
 import net.neoforged.neoforge.network.registration.IPayloadRegistrar;
@@ -95,8 +96,9 @@ public final class PlayerStatusesNeoForge {
                 ServerSide.left(player);
             }
         });
+        NeoForge.EVENT_BUS.addListener((ServerStoppingEvent e) -> ServerSide.stop());
         if (FMLEnvironment.dist == Dist.CLIENT) {
-            NeoForgeClient.init(FMLPaths.CONFIGDIR.get());
+            NeoForgeClient.init(modBus, FMLPaths.CONFIGDIR.get());
         }
     }
 }

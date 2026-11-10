@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -89,7 +90,11 @@ public final class ServerSide {
 
         for (ServerPlayer p : players) {
             UUID id = p.getUUID();
-            DETECTOR.onPose(id, p.getX(), p.getY(), p.getZ(), p.yRot, p.xRot, relay, now);
+            if (p.isPassenger()) {
+                DETECTOR.onHeadPose(id, p.yRot, p.xRot, relay, now);
+            } else {
+                DETECTOR.onPose(id, p.getX(), p.getY(), p.getZ(), p.yRot, p.xRot, relay, now);
+            }
             DETECTOR.setOpenContainer(id, MenuActivities.of(p.containerMenu, false), relay, now);
             DETECTOR.updatePlayer(id, core.settings(), relay, now);
         }
@@ -97,10 +102,10 @@ public final class ServerSide {
         relay.tick(now);
 
         List<StatusMessages.Entry> updates = new ArrayList<>(relay.takeChangedEntries(now));
-        for (UUID leftId : LEFT_PLAYERS) {
-            updates.add(new StatusMessages.Entry(leftId, PlayerStatus.NONE));
+        for (Iterator<UUID> it = LEFT_PLAYERS.iterator(); it.hasNext(); ) {
+            updates.add(new StatusMessages.Entry(it.next(), PlayerStatus.NONE));
+            it.remove();
         }
-        LEFT_PLAYERS.clear();
 
         if (!updates.isEmpty() && sender != null && !players.isEmpty()) {
             List<byte[]> packets = StatusMessages.statusesSplit(updates);
@@ -131,5 +136,12 @@ public final class ServerSide {
             LEFT_PLAYERS.add(id);
         }
         relay.remove(id);
+    }
+
+    public static void stop() {
+        LEFT_PLAYERS.clear();
+        DETECTOR.retainOnline(id -> false);
+        core().relay().retainOnline(id -> false);
+        VanillaBridge.clearAll();
     }
 }

@@ -42,13 +42,16 @@ public class CommandsGameTest implements FabricClientGameTest {
             context.runOnClient(client -> TestClient.language(client, "en_us"));
             context.waitTicks(5);
             context.waitFor(TestClient::loaded, 1200);
-            context.waitTicks(50);
+            context.waitTicks(40);
+            context.runOnClient(TestClient::prepareScene);
+            context.waitFor(TestClient::sceneReady, 400);
+            context.waitTicks(30);
             context.runOnClient(client -> {
                 TestClient.clearChat(client);
                 TestClient.spawnFakePlayer(client);
             });
             context.getInput().resizeWindow(3840, 2160);
-            context.waitTicks(10);
+            context.waitTicks(15);
 
             storeScreenshot(context, "store-typing", new PlayerStatus(Activity.TYPING, 0, 0));
             storeScreenshot(context, "store-inventory", new PlayerStatus(Activity.INVENTORY, 0, 0));
@@ -67,11 +70,15 @@ public class CommandsGameTest implements FabricClientGameTest {
             context.runOnClient(client -> TestClient.setOwnStatus(client, PlayerStatus.NONE));
 
             // Verify client SettingsScreen renders and is detected as Activity.SETTINGS
+            context.runOnClient(client -> TestClient.setFakeStatus(new PlayerStatus(Activity.TYPING, 0, 0)));
             Activity screenActivity = context.computeOnClient(TestClient::openSettingsScreen);
             if (screenActivity != Activity.SETTINGS) {
                 throw new AssertionError("Expected Activity.SETTINGS for SettingsScreen, got " + screenActivity);
             }
-            context.waitTicks(5);
+            context.waitTicks(8);
+            context.takeScreenshot(
+                TestScreenshotOptions.of("store-settings").disableCounterPrefix().withSize(3840, 2160)
+            );
             context.runOnClient(TestClient::closeScreen);
 
             // Verify server-side VanillaBridge (TextDisplay + Tab list for vanilla clients)

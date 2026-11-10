@@ -16,8 +16,8 @@ import net.minecraft.world.entity.player.Player;
  */
 public final class ArmPoseRenderer {
 
-    private static final Field RIGHT_ARM_POSE = findField(PlayerRenderState.class, "rightArmPose", "field_55304");
-    private static final Field LEFT_ARM_POSE = findField(PlayerRenderState.class, "leftArmPose", "field_55306");
+    private static final Field RIGHT_ARM_POSE = findField(PlayerRenderState.class, "rightArmPose", "field_55304", "field_53429");
+    private static final Field LEFT_ARM_POSE = findField(PlayerRenderState.class, "leftArmPose", "field_55306", "field_53430");
 
     private ArmPoseRenderer() {
     }
@@ -42,7 +42,7 @@ public final class ArmPoseRenderer {
         if (mc.level == null || state == null) {
             return;
         }
-        if (state.isUsingItem || state.isFallFlying
+        if (state.isUsingItem || state.attackTime > 0.0f || state.isFallFlying
                 || state.isVisuallySwimming || state.isAutoSpinAttack) {
             return;
         }

@@ -18,6 +18,10 @@ sourceSets {
     forge {
         compileClasspath += stubs.output
     }
+    test {
+        compileClasspath += forge.output + stubs.output
+        runtimeClasspath += forge.output + stubs.output
+    }
 }
 
 dependencies {
@@ -25,11 +29,18 @@ dependencies {
     fabricCompileOnly("net.fabricmc:fabric-loader:0.14.21") {
         transitive = false
     }
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.release = 8
+    options.release = name == 'compileTestJava' ? 17 : 8
     options.encoding = 'UTF-8'
     // javac warns that release 8 is old; it is what Minecraft 1.16.5 runs on
     options.compilerArgs += ['-Xlint:-options']
+}
+
+test {
+    useJUnitPlatform()
 }

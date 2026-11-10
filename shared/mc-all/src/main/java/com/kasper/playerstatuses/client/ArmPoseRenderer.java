@@ -23,7 +23,7 @@ public final class ArmPoseRenderer {
         if (mc.level == null || state == null) {
             return;
         }
-        if (state.isUsingItem || state.isFallFlying
+        if (state.isUsingItem || state.attackTime > 0.0f || state.isFallFlying
                 || state.isVisuallySwimming || state.isAutoSpinAttack) {
             return;
         }

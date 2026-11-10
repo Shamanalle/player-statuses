@@ -8,17 +8,21 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.DeathScreen;
+import net.minecraft.client.gui.screens.InBedChatScreen;
 import net.minecraft.client.gui.screens.LevelLoadingScreen;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.ProgressScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.advancements.AdvancementsScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractCommandBlockEditScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.BookEditScreen;
 import net.minecraft.client.gui.screens.inventory.BookViewScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.screens.inventory.JigsawBlockEditScreen;
 import net.minecraft.client.gui.screens.inventory.SignEditScreen;
+import net.minecraft.client.gui.screens.inventory.StructureBlockEditScreen;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -47,7 +51,12 @@ public final class ScreenDetector {
             if (!text.trim().isEmpty()) {
                 return Activity.TYPING;
             }
-            return Activity.CHAT;
+            return (screen instanceof InBedChatScreen) ? Activity.NONE : Activity.CHAT;
+        }
+        if (screen instanceof AbstractCommandBlockEditScreen
+                || screen instanceof StructureBlockEditScreen
+                || screen instanceof JigsawBlockEditScreen) {
+            return Activity.COMMAND;
         }
         if (screen instanceof InventoryScreen || screen instanceof CreativeModeInventoryScreen) {
             return Activity.INVENTORY;

@@ -13,6 +13,7 @@ import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.network.CustomPayloadEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLEnvironment;
@@ -76,6 +77,7 @@ public final class PlayerStatusesForge {
                 ServerSide.left(player);
             }
         });
+        ServerStoppingEvent.BUS.addListener(e -> ServerSide.stop());
         if (FMLEnvironment.dist == Dist.CLIENT) {
             ForgeClient.init(context, FMLPaths.CONFIGDIR.get(), CHANNEL);
         }

@@ -64,7 +64,8 @@ public final class OverheadRenderer {
 
         boolean hasName = state.nameTag != null;
         boolean hasScore = state.scoreText != null;
-        float yShift = hasName ? (hasScore ? -22.0f : -12.0f) : 0.0f;
+        boolean hasEars = hasName && "deadmau5".equals(state.nameTag.getString());
+        float yShift = (hasName ? (hasScore ? -22.0f : -12.0f) : 0.0f) + (hasEars ? -10.0f : 0.0f);
         poseStack.translate(0.0f, yShift, 0.0f);
 
         Matrix4f mat = poseStack.last().pose();
@@ -72,7 +73,7 @@ public final class OverheadRenderer {
         AtomicInteger idx = new AtomicInteger();
         StatusIcon.CardLayout layout = StatusIcon.drawCard(
                 (x0, y0, x1, y1, argb) -> {
-                    float z = -0.05f + idx.getAndIncrement() * 0.0005f;
+                    float z = -0.05f + idx.getAndIncrement() * 0.00015f;
                     vc.addVertex(mat, x0, y1, z).setColor(argb).setLight(packedLight);
                     vc.addVertex(mat, x1, y1, z).setColor(argb).setLight(packedLight);
                     vc.addVertex(mat, x1, y0, z).setColor(argb).setLight(packedLight);

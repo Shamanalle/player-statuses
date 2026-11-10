@@ -86,7 +86,11 @@ legacyTargets.each { t ->
         group = 'build'
         description = "Builds ${t.dir} with its own Gradle"
         workingDir = file(t.dir)
-        commandLine 'sh', 'gradlew', 'build', '--no-daemon', '--stacktrace'
+        if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+            commandLine 'cmd', '/c', 'gradlew.bat', 'build', '--no-daemon', '--stacktrace'
+        } else {
+            commandLine 'sh', 'gradlew', 'build', '--no-daemon', '--stacktrace'
+        }
         doFirst {
             environment 'JAVA_HOME', legacyJavaHome(t.jdk)
         }

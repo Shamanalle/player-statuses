@@ -21,6 +21,12 @@ class ClientLogicTest {
         assertFalse(t.isAfk(200_000, 0));
         t.input(200_001);
         assertFalse(t.isAfk(200_001, 3));
+
+        // Backward wall-clock jump (e.g. NTP step) must not pin idle state permanently
+        t.input(1_000_000L);
+        assertEquals(0L, t.idleMillis(500_000L));
+        t.input(500_000L);
+        assertEquals(5_000L, t.idleMillis(505_000L));
     }
 
     @Test
@@ -35,6 +41,8 @@ class ClientLogicTest {
         PlayerStatus afk = new PlayerStatus(Activity.NONE, StatusFlag.AFK.bit(), 180);
         assertEquals(afk, l.poll(afk, 2000));
         assertNull(l.poll(afk.withIdleSeconds(181), 3000));
+        // Backward clock jump does not block new status updates
+        assertEquals(PlayerStatus.of(Activity.TYPING), l.poll(PlayerStatus.of(Activity.TYPING), 500));
         l.reset();
         assertNotNull(l.poll(afk, 3001));
     }
@@ -114,6 +122,12 @@ class ClientLogicTest {
         assertTrue(layout.width() > 50);
         assertEquals(2, layout.extraFlags().size());
         assertFalse(rects.isEmpty());
+
+        // When sound is deafened, mic-off is implied and visually deduplicated on the badge
+        PlayerStatus deafened = PlayerStatus.of(Activity.NONE, StatusFlag.MIC_OFF, StatusFlag.SOUND_OFF);
+        StatusIcon.CardLayout deafLayout = StatusIcon.layout(deafened, 28, 90);
+        assertEquals(StatusIcon.sprite(StatusFlag.SOUND_OFF).accentRgb(), deafLayout.accentRgb());
+        assertTrue(deafLayout.extraFlags().isEmpty());
     }
 
     @Test

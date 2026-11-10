@@ -15,7 +15,7 @@
 ```bash
 git clone https://github.com/Shamanalle/player-statuses.git
 cd player-statuses
-./gradlew :common:test                 # fast: statuses, network messages, relay, settings, commands, translations
+./gradlew :common:test :universal:test # fast: statuses, protocol, relay, layout, band routing, translations
 ./gradlew build                        # every target; the release jars land in build/libs/
 ./gradlew :fabric-1.21.11:runClient    # or :fabric-26, :neoforge-1.21.1, ...; runServer for a server
 ./gradlew :bukkit:build                # the Paper / Purpur / Folia / Spigot plugin only
@@ -27,7 +27,7 @@ cd player-statuses
 |---|---|---|
 | `common/` | every jar (no Minecraft classes; Java 17 sources, built a second time as Java 8 bytecode by `common-j8`) | the status model (`Activity`, `StatusFlag`, `PlayerStatus`), the network messages (`StatusMessages`), the server relay with its rate limit (`StatusRelay`), idle detection (`IdleTracker`), the client's send limiter (`SendLimiter`), settings files (`SettingsFile`, `ClientSettings`, `ServerSettings`), other mods' screens (`ScreenRules`), the commands (`StatusCommands`), server texts (`ServerText`), **translations and the icon** |
 | `shared/mc-all/` | every Fabric, Forge and NeoForge band | the server half on top of Minecraft: `/playerstatuses` and `/afk` (`StatusCommand`), the server hooks (`ServerSide`), `AdminPermission`, `PlayerLanguage` |
-| `shared/mc-1.20.1/`, `shared/mc-1.21.11-up/` | the bands of those versions | the few classes that differ there (a band's own copy of a file replaces the shared one with the same path) |
+| `shared/mc-1.16/` … `shared/mc-26/` | the bands of those versions | version-adapted client GUI, rendering, `VanillaBridge`, `PlayerLanguage` and `AdminPermission` classes (a band's own copy replaces the shared one with the same path) |
 | `shared/fabric/`, `shared/neoforge/`, `shared/forge-bus7/` | the bands of that loader | the loader's entrypoint and hooks; `shared/fabric` also has the `fabric.mod.json` template |
 | `shared/gametest/` | `fabric-1.21.11`, `fabric-26` (client gametest) | opens a world in a real client, runs the commands in English and Russian, takes screenshots |
 | `versions/<loader>/<band>/` | one band of the universal jar each; the Gradle project is `:<loader>-<band>` | only what differs on those versions, and the band's `build.gradle` (see `gradle/fabric-band.gradle`, `neoforge-band.gradle`, `forge-band.gradle`). Forge 1.20.1 runs with Forge's SRG names, so that band is remapped by `reobfJar` |
@@ -110,7 +110,7 @@ The Modrinth page is `docs/modrinth.md`, uploaded by the *Modrinth page* workflo
 ```bash
 git clone https://github.com/Shamanalle/player-statuses.git
 cd player-statuses
-./gradlew :common:test                 # быстро: статусы, сетевые сообщения, ретрансляция, настройки, команды, переводы
+./gradlew :common:test :universal:test # быстро: статусы, протокол, ретрансляция, вёрстка, выбор диапазонов, переводы
 ./gradlew build                        # все версии; JAR для релиза в build/libs/
 ./gradlew :fabric-1.21.11:runClient    # или :fabric-26, :neoforge-1.21.1, ...; runServer для сервера
 ./gradlew :bukkit:build                # только плагин для Paper / Purpur / Folia / Spigot
@@ -122,7 +122,7 @@ cd player-statuses
 |---|---|---|
 | `common/` | во все JAR (без классов Minecraft; исходники на Java 17, `common-j8` собирает их ещё раз в байткод Java 8) | модель статусов (`Activity`, `StatusFlag`, `PlayerStatus`), сетевые сообщения (`StatusMessages`), ретрансляция на сервере с ограничением частоты (`StatusRelay`), учёт простоя (`IdleTracker`), ограничитель отправки на клиенте (`SendLimiter`), файлы настроек (`SettingsFile`, `ClientSettings`, `ServerSettings`), экраны других модов (`ScreenRules`), команды (`StatusCommands`), тексты сервера (`ServerText`), **переводы и иконка** |
 | `shared/mc-all/` | во все диапазоны Fabric, Forge и NeoForge | серверная часть поверх Minecraft: `/playerstatuses` и `/afk` (`StatusCommand`), хуки сервера (`ServerSide`), `AdminPermission`, `PlayerLanguage` |
-| `shared/mc-1.20.1/`, `shared/mc-1.21.11-up/` | в диапазоны этих версий | немногие классы, которые там отличаются (своя копия файла в диапазоне заменяет общий файл с тем же путём) |
+| `shared/mc-1.16/` … `shared/mc-26/` | в диапазоны этих версий | адаптированные под конкретные версии GUI клиента, рендер, `VanillaBridge`, `PlayerLanguage` и `AdminPermission` (своя копия в диапазоне заменяет общий файл с тем же путём) |
 | `shared/fabric/`, `shared/neoforge/`, `shared/forge-bus7/` | в диапазоны этого загрузчика | точка входа и хуки загрузчика; в `shared/fabric` ещё шаблон `fabric.mod.json` |
 | `shared/gametest/` | `fabric-1.21.11`, `fabric-26` (client gametest) | открывает мир в настоящем клиенте, выполняет команды на английском и русском, делает скриншоты |
 | `versions/<загрузчик>/<диапазон>/` | по одному диапазону универсального JAR; проект Gradle — `:<загрузчик>-<диапазон>` | только то, что отличается на этих версиях, и `build.gradle` диапазона (см. `gradle/fabric-band.gradle`, `neoforge-band.gradle`, `forge-band.gradle`). Forge 1.20.1 работает с именами SRG, поэтому этот диапазон переименовывает `reobfJar` |

@@ -69,6 +69,40 @@ class SettingsAndCommandsTest {
         assertTrue(new String(Files.readAllBytes(file), StandardCharsets.UTF_8).contains("extra=1"));
     }
 
+    @Test
+    void resetDefaultsRestoresAllSettingsAndEscapesSpecialUnknownKeys() throws IOException {
+        Path file = dir.resolve("reset.properties");
+        Files.write(file, "custom\\ key\\:one=hello\n".getBytes(StandardCharsets.UTF_8));
+        ClientSettings s = new ClientSettings();
+        s.load(file);
+        s.set(ClientSettings.OPACITY, 40);
+        s.set(ClientSettings.SHOW_OWN, true);
+        s.set(ClientSettings.send(Category.TYPING), false);
+        s.save();
+
+        s.resetDefaults();
+        s.save();
+
+        ClientSettings reloaded = new ClientSettings();
+        reloaded.load(file);
+        assertEquals(ClientSettings.OPACITY.def(), reloaded.get(ClientSettings.OPACITY));
+        assertEquals(ClientSettings.SHOW_OWN.def(), reloaded.get(ClientSettings.SHOW_OWN));
+        assertTrue(reloaded.sends(Category.TYPING));
+        String raw = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
+        assertTrue(raw.contains("custom\\ key\\:one=hello"), raw);
+    }
+
+    @Test
+    void serverTextHandlesMalformedInputsAndNonStringJsonValues() {
+        assertTrue(ServerText.parse(null).isEmpty());
+        assertTrue(ServerText.parse("not json at all").isEmpty());
+        java.util.Map<String, String> parsed = ServerText.parse(
+                "{\"count\": 42, \"enabled\": true, \"nested\": {\"a\": \"b\"}, \"arr\": [1, \"two\"], \"k\": \"val\"}"
+        );
+        assertEquals("val", parsed.get("k"));
+        assertFalse(parsed.containsKey("a"));
+    }
+
     private static StatusCommands.Source source(UUID player, String lang, boolean admin) {
         return new StatusCommands.Source() {
             @Override
@@ -127,5 +161,50 @@ class SettingsAndCommandsTest {
         assertFalse(StatusCommands.afk(source(null, "", true), server, 0).success());
         server.settings().set(ServerSettings.AFK_COMMAND, false);
         assertFalse(StatusCommands.afk(s, server, 0).success());
+    }
+
+    @Test
+    void settingsLayoutFitsWithoutOverlapAcrossGuiScales() {
+        ClientSettings s = new ClientSettings();
+        for (int i = 0; i < SettingsLayout.PREVIEW_COUNT * 2; i++) {
+            PlayerStatus p = SettingsLayout.previewStatus(i, s);
+            assertFalse(p.isNone(), "Preview " + i + " must not be NONE");
+        }
+
+        SettingsLayout.setAllCategories(s, true, false);
+        for (Category c : Category.values()) {
+            assertFalse(s.sends(c));
+            assertTrue(s.shows(c));
+        }
+        SettingsLayout.setAllCategories(s, false, false);
+        for (Category c : Category.values()) {
+            assertFalse(s.shows(c));
+        }
+        SettingsLayout.setAllCategories(s, true, true);
+        SettingsLayout.setAllCategories(s, false, true);
+
+        int[][] resolutions = {{276, 240}, {427, 240}, {480, 270}, {640, 360}, {960, 540}};
+        for (int[] res : resolutions) {
+            SettingsLayout.Metrics m = new SettingsLayout.Metrics(res[0], res[1]);
+            assertTrue(m.previewY > m.titleY + 7, "Title overlaps preview at " + res[0] + "x" + res[1]);
+            assertTrue(m.tabsY >= m.previewY + m.previewH + 2, "Preview overlaps tabs at " + res[0] + "x" + res[1]);
+            int generalBottom = m.generalStartY + 3 * m.rowStep + m.btnH;
+            assertTrue(generalBottom + 2 <= m.footerY, "General rows overlap footer at " + res[0] + "x" + res[1]);
+            int categoryRows = (Category.values().length + 1) / 2;
+            int gridBottom = m.gridStartY + (categoryRows - 1) * m.rowStep + m.btnH;
+            assertTrue(m.gridStartY >= m.bulkY + m.subBtnH + 2, "Bulk buttons overlap grid at " + res[0] + "x" + res[1]);
+            assertTrue(gridBottom + 2 <= m.footerY, "Category grid overlaps footer at " + res[0] + "x" + res[1]);
+
+            java.util.List<int[]> rects = new java.util.ArrayList<>();
+            int[] origin = new int[6];
+            StatusIcon.CardLayout card = SettingsLayout.drawHeaderChrome(
+                    (x0, y0, x1, y1, argb) -> rects.add(new int[]{x0, y0, x1, y1, argb}),
+                    m, SettingsLayout.TAB_SEND, true,
+                    SettingsLayout.previewStatus(0, s), 34, 90, 56, 1234L, origin);
+            assertNotNull(card);
+            assertFalse(rects.isEmpty());
+            assertTrue(origin[0] > m.panelX);
+            assertTrue(origin[4] > m.panelX + m.previewCardW / 2);
+        }
     }
 }

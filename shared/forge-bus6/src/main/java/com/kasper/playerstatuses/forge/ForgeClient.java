@@ -3,12 +3,15 @@ package com.kasper.playerstatuses.forge;
 import com.kasper.playerstatuses.client.ArmPoseRenderer;
 import com.kasper.playerstatuses.client.ClientSide;
 import com.kasper.playerstatuses.client.OverheadRenderer;
+import com.kasper.playerstatuses.client.SettingsKey;
 import com.kasper.playerstatuses.client.SettingsScreen;
 import io.netty.buffer.Unpooled;
 import java.nio.file.Path;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.client.ConfigScreenHandler;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.RenderNameTagEvent;
 import net.minecraftforge.client.event.RenderPlayerEvent;
 import net.minecraftforge.common.MinecraftForge;
@@ -28,6 +31,11 @@ final class ForgeClient {
             ConfigScreenHandler.ConfigScreenFactory.class,
             () -> new ConfigScreenHandler.ConfigScreenFactory((mc, parent) -> new SettingsScreen(parent))
         );
+        context.getModEventBus().addListener((RegisterKeyMappingsEvent e) -> {
+            KeyMapping key = SettingsKey.create();
+            e.register(key);
+            ClientSide.bindSettingsKey(key);
+        });
         ClientSide.useSender(data -> {
             if (Minecraft.getInstance().getConnection() != null) {
                 channel.send(new FriendlyByteBuf(Unpooled.wrappedBuffer(data)), PacketDistributor.SERVER.noArg());
@@ -40,10 +48,16 @@ final class ForgeClient {
             ArmPoseRenderer.apply(e.getEntity(), e.getRenderer().getModel(), e.getPartialTick())
         );
         MinecraftForge.EVENT_BUS.addListener((RenderNameTagEvent e) -> {
+            if (e.getResult() == Event.Result.DENY) {
+                return;
+            }
+            var camera = Minecraft.getInstance().getCameraEntity();
             boolean nameShown = e.getResult() == Event.Result.ALLOW
                 || (e.getResult() == Event.Result.DEFAULT
+                    && Minecraft.renderNames()
                     && e.getEntity().shouldShowName()
-                    && e.getEntity() != Minecraft.getInstance().getCameraEntity());
+                    && e.getEntity() != camera
+                    && (camera == null || e.getEntity().distanceToSqr(camera) <= 4096.0));
             OverheadRenderer.render(
                 e.getEntity(),
                 nameShown,

@@ -40,7 +40,10 @@ public final class PlayerStatusesVoiceChatPlugin implements VoicechatPlugin {
 
     @Override
     public void registerEvents(EventRegistration registration) {
-        registration.registerEvent(ClientVoicechatInitializationEvent.class, PlayerStatusesVoiceChatPlugin::onClientEvent);
+        registration.registerEvent(ClientVoicechatInitializationEvent.class, e -> {
+            clientApi = e.getVoicechat();
+            connected = false;
+        });
         registration.registerEvent(ClientVoicechatConnectionEvent.class, e -> {
             clientApi = e.getVoicechat();
             connected = e.isConnected();
