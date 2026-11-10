@@ -8,7 +8,8 @@
 
 Видно, чем заняты другие игроки: аккуратный значок над головой показывает, что игрок **печатает**, открыл **инвентарь или сундук**, **АФК** (с таймером) или **свернул игру**. Работает с модом на сервере или на Paper / Purpur / Folia / Spigot с плагином, который показывает статусы в том числе и игрокам без мода.
 
-[![CurseForge](https://img.shields.io/badge/CurseForge-скачать-F16436?logo=curseforge&logoColor=white)](https://www.curseforge.com/minecraft/mc-mods/player-statuses)
+[![CurseForge](https://img.shields.io/badge/CurseForge-мод-F16436?logo=curseforge&logoColor=white)](https://www.curseforge.com/minecraft/mc-mods/player-statuses-typing-afk-inventory-voice-chat)
+[![CurseForge Plugin](https://img.shields.io/badge/CurseForge-плагин%20Paper-F16436?logo=curseforge&logoColor=white)](https://www.curseforge.com/minecraft/bukkit-plugins/player-statuses-typing-afk-inventory-voice-chat)
 [![Release](https://img.shields.io/github/v/release/Shamanalle/player-statuses?logo=github&color=brightgreen&include_prereleases)](https://github.com/Shamanalle/player-statuses/releases)
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.16.5%20%E2%80%93%2026.3-blue.svg)](#версии-и-файлы)
 [![Loaders](https://img.shields.io/badge/loaders-Fabric%20%C2%B7%20Quilt%20%C2%B7%20Forge%20%C2%B7%20NeoForge%20%C2%B7%20Paper-7c8cff.svg)](#версии-и-файлы)

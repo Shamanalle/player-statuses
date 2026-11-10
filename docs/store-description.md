@@ -14,7 +14,9 @@ The store descriptions live in `docs/curseforge.html` (mod) and `docs/curseforge
 
 Why: stores search the project name and summary first, so the exact terms players type ("typing", "AFK", "inventory", "voice chat", "indicators") belong right after the colon — matching *Mob Senses* and *Chat Items*. Loaders and Minecraft versions are not allowed in store titles, so both the mod project and the Bukkit plugin project use the exact same title while differentiating loaders in their summaries.
 
-**Slug (`URL` field on CurseForge):** `player-statuses` (edit CurseForge's auto-generated long URL back to `player-statuses` so it matches the CurseForge badge in `README.md`; for the Bukkit plugin project use `player-statuses`).
+**CurseForge Projects:**
+- **Mod (`1797144`):** https://www.curseforge.com/minecraft/mc-mods/player-statuses-typing-afk-inventory-voice-chat
+- **Bukkit Plugin (`1797163`):** https://www.curseforge.com/minecraft/bukkit-plugins/player-statuses-typing-afk-inventory-voice-chat
 
 ### Summary
 

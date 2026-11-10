@@ -8,7 +8,8 @@
 
 See what other players are up to: a small badge above their heads shows when they are **typing**, have their **inventory or a chest open**, are **AFK** (with a timer) or have **tabbed out**. Works with the mod on the server, or on Paper / Purpur / Folia / Spigot with the plugin, which also shows what it can to players without the mod.
 
-[![CurseForge](https://img.shields.io/badge/CurseForge-download-F16436?logo=curseforge&logoColor=white)](https://www.curseforge.com/minecraft/mc-mods/player-statuses)
+[![CurseForge](https://img.shields.io/badge/CurseForge-mod-F16436?logo=curseforge&logoColor=white)](https://www.curseforge.com/minecraft/mc-mods/player-statuses-typing-afk-inventory-voice-chat)
+[![CurseForge Plugin](https://img.shields.io/badge/CurseForge-Paper%20plugin-F16436?logo=curseforge&logoColor=white)](https://www.curseforge.com/minecraft/bukkit-plugins/player-statuses-typing-afk-inventory-voice-chat)
 [![Release](https://img.shields.io/github/v/release/Shamanalle/player-statuses?logo=github&color=brightgreen&include_prereleases)](https://github.com/Shamanalle/player-statuses/releases)
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.16.5%20%E2%80%93%2026.3-blue.svg)](#versions-and-files)
 [![Loaders](https://img.shields.io/badge/loaders-Fabric%20%C2%B7%20Quilt%20%C2%B7%20Forge%20%C2%B7%20NeoForge%20%C2%B7%20Paper-7c8cff.svg)](#versions-and-files)
