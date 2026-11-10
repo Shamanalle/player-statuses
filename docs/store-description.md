@@ -10,19 +10,21 @@ The store descriptions live in `docs/curseforge.html` (mod) and `docs/curseforge
 
 ### Name
 
-**Name:** Player Statuses: Typing, AFK & Open Screen Indicators
+**Name (both CurseForge Mods and CurseForge Bukkit Plugins):** Player Statuses: Typing, AFK, Inventory & Voice Chat Indicators
 
-**Plugin (CurseForge Bukkit Plugins, Hangar, Spigot):** Player Statuses: Typing & AFK Indicators for Paper
+Why: stores search the project name and summary first, so the exact terms players type ("typing", "AFK", "inventory", "voice chat", "indicators") belong right after the colon — matching *Mob Senses* and *Chat Items*. Loaders and Minecraft versions are not allowed in store titles, so both the mod project and the Bukkit plugin project use the exact same title while differentiating loaders in their summaries.
 
-Why: stores search the project name and summary first, so the exact terms players type ("typing indicator", "AFK", "open screen / inventory") belong there. Loaders and Minecraft versions are not allowed in store titles.
-
-**Slug:** `player-statuses` (matches the CurseForge badge in `README.md`).
+**Slug (`URL` field on CurseForge):** `player-statuses` (edit CurseForge's auto-generated long URL back to `player-statuses` so it matches the CurseForge badge in `README.md`; for the Bukkit plugin project use `player-statuses`).
 
 ### Summary
 
-**Summary:** See what other players are up to: typing indicator, inventory or chest open, AFK with a timer, tabbed out. Small icons above heads and in the Tab list, a privacy switch for each status. Fabric, Forge, NeoForge and a Paper plugin.
+**Summary:** See what players are up to: chat typing indicator, open inventory or chest, crafting, AFK timer, Alt-Tab & Simple Voice Chat mute icons — above heads and in the Tab list, with per-status privacy switches. Forge, NeoForge, Fabric & Paper.
 
-229 characters (CurseForge allows 250, Modrinth 256).
+237 characters (CurseForge allows 250, Modrinth 256).
+
+**Plugin summary:** See what players are up to: chat typing, open inventory or chest, crafting, AFK timer & Simple Voice Chat icons above heads and in Tab — works with modded and vanilla clients! Server plugin for Paper, Purpur, Folia and Spigot.
+
+226 characters (CurseForge allows 250).
 
 **First paragraph of the description** (if creating a project before pasting the full HTML):
 
@@ -60,15 +62,15 @@ Why: stores search the project name and summary first, so the exact terms player
 
 ### Название
 
-**Название:** Player Statuses: Typing, AFK & Open Screen Indicators
+**Название (одинаковое для CurseForge Mods и CurseForge Bukkit Plugins):** Player Statuses: Typing, AFK, Inventory & Voice Chat Indicators
 
-**Плагин (CurseForge Bukkit Plugins, Hangar, Spigot):** Player Statuses: Typing & AFK Indicators for Paper
-
-**Slug:** `player-statuses` (на него ведут бейджи README).
+**Slug (поле `URL` на CurseForge):** `player-statuses` (в форме создания проекта вручную поправьте автосгенерированный длинный URL обратно на `player-statuses`, чтобы на него вёл бейдж в `README.md`).
 
 ### Краткое описание
 
-На площадках заполняется на английском (см. `Summary` выше, 229 символов из 250 допустимых на CurseForge). Перевод: *Видно, чем заняты другие игроки: индикатор набора текста, открытый инвентарь или сундук, АФК с таймером, свёрнутая игра. Компактные значки над головами и в списке Tab, переключатель приватности для каждого статуса. Fabric, Forge, NeoForge и плагин для Paper.*
+На площадках заполняется только на английском (см. `Summary` на 237 символов и `Plugin summary` на 226 символов выше, лимит CurseForge — 250 символов).
+- Перевод для мода: *Видно, чем заняты игроки: индикатор набора текста в чате, открытый инвентарь или сундук, верстак, таймер АФК, свёрнутая игра и мут Simple Voice Chat — над головами и в списке Tab, с настройками приватности для каждого статуса. Forge, NeoForge, Fabric и Paper.*
+- Перевод для плагина: *Видно, чем заняты игроки: набор текста, открытый инвентарь или сундук, верстак, таймер АФК и значки Simple Voice Chat над головами и в Tab — работает и с модовыми, и с ванильными клиентами! Серверный плагин для Paper, Purpur, Folia и Spigot.*
 
 ### Категории
 
