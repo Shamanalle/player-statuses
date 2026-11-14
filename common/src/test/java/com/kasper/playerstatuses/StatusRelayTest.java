@@ -188,4 +188,44 @@ class StatusRelayTest {
         detector.updatePlayer(sam, settings, relay, t + 1_000L);
         assertFalse(relay.current(sam, t + 1_000L).has(StatusFlag.AFK));
     }
+
+    @Test
+    void relayTracksProjectionsAndEnforcesInteractCooldowns() {
+        StatusRelay relay = new StatusRelay();
+        HoloState.Projection craft = new HoloState.Projection(
+                HoloState.LayoutKind.CRAFTING, new byte[]{1, 2, 3, 4}, 0.4f, 0.5f, 1, 0, 0);
+        assertTrue(relay.onClientMessage(alex, StatusMessages.projectionUpdate(craft), 1000L));
+        assertEquals(craft, relay.currentProjection(alex));
+        assertEquals(Collections.singletonList(
+                new StatusMessages.ProjectionEntry(alex, craft)), relay.takeChangedProjectionEntries());
+        assertTrue(relay.takeChangedProjectionEntries().isEmpty());
+
+        // Self-interact is rejected
+        byte[] selfPing = StatusMessages.holoInteract(new HoloState.Interact(
+                alex, HoloState.Action.PING_SLOT, 2, "item.minecraft.diamond"));
+        assertNull(relay.validateInteract(alex, selfPing, 2000L));
+
+        // First ping accepted; repeated ping within 1.2s is rejected; after 1.2s is accepted
+        byte[] pingSam = StatusMessages.holoInteract(new HoloState.Interact(
+                sam, HoloState.Action.PING_SLOT, 2, "item.minecraft.diamond"));
+        HoloState.Event ev1 = relay.validateInteract(alex, pingSam, 2000L);
+        assertNotNull(ev1);
+        assertEquals(alex, ev1.sender());
+        assertEquals(sam, ev1.target());
+        assertEquals(2, ev1.slotIndex());
+        assertNull(relay.validateInteract(alex, pingSam, 2500L));
+        assertNotNull(relay.validateInteract(alex, pingSam, 3200L));
+
+        // AFK Call cooldown is 20s per (sender, target)
+        byte[] callSam = StatusMessages.holoInteract(new HoloState.Interact(
+                sam, HoloState.Action.KNOCK_AFK, HoloState.AFK_CALL_BUTTON_SLOT, ""));
+        assertNotNull(relay.validateInteract(alex, callSam, 5000L));
+        assertNull(relay.validateInteract(alex, callSam, 24_999L));
+        assertNotNull(relay.validateInteract(alex, callSam, 25_000L));
+
+        // Clearing active status to completely NONE clears stale projection
+        relay.onClientMessage(alex, StatusMessages.update(PlayerStatus.of(Activity.CRAFTING)), 26_000L);
+        relay.onClientMessage(alex, StatusMessages.update(PlayerStatus.NONE), 26_500L);
+        assertTrue(relay.currentProjection(alex).isNone());
+    }
 }

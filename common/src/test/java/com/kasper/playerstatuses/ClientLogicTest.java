@@ -227,4 +227,49 @@ class ClientLogicTest {
         assertFalse(VoiceChatState.isSoundOff());
         VoiceChatState.bind(null, null);
     }
+
+    @Test
+    void holoProjectionRateLimitingPrivacyAndEvents() {
+        StatusClient client = new StatusClient();
+        java.util.UUID peer = new java.util.UUID(3, 3);
+        java.util.UUID local = new java.util.UUID(4, 4);
+
+        HoloState.Projection first = new HoloState.Projection(
+                HoloState.LayoutKind.CRAFTING, new byte[]{1, 0, 3, 4}, 0.2f, 0.4f, 1, 0, 0);
+        byte[] sent1 = client.pollProjectionSend(first, 1000L);
+        assertNotNull(sent1);
+        assertEquals(first, StatusMessages.readProjectionUpdate(sent1));
+
+        // Sub-2.5% cursor jitter inside rate window sends nothing
+        assertNull(client.pollProjectionSend(first.withCursor(0.21f, 0.41f), 1020L));
+        // Within 100ms holds even larger cursor move until interval elapses
+        assertNull(client.pollProjectionSend(first.withCursor(0.8f, 0.8f), 1050L));
+        assertNotNull(client.pollProjectionSend(first.withCursor(0.8f, 0.8f), 1100L));
+        // Closing sends immediately
+        assertEquals(HoloState.Projection.EMPTY,
+                StatusMessages.readProjectionUpdate(client.pollProjectionSend(HoloState.Projection.EMPTY, 1110L)));
+
+        // Turning off SEND_PROJECTION_SLOTS strips slot silhouettes
+        client.settings().set(ClientSettings.SEND_PROJECTION_SLOTS, false);
+        byte[] stripped = client.pollProjectionSend(first, 1500L);
+        assertNotNull(stripped);
+        assertEquals(0, StatusMessages.readProjectionUpdate(stripped).slotCount());
+
+        // Fallback procedural layout for unmodded peers + shouldShowHolo distance check
+        PlayerStatus peerStatus = PlayerStatus.of(Activity.CONTAINER);
+        client.setStatus(peer, peerStatus, 2000L);
+        HoloState.Projection fallback = client.projectionOf(peer, peerStatus, 2000L);
+        assertEquals(HoloState.LayoutKind.CONTAINER_27, fallback.layout());
+        assertTrue(client.shouldShowHolo(peerStatus, fallback, false, false, false, false, false, false, false, 6 * 6));
+        assertFalse(client.shouldShowHolo(peerStatus, fallback, false, false, false, false, false, false, false, 12 * 12));
+
+        // Local ping event filtering against ALLOW_HOLO_PINGS
+        byte[] eventBytes = StatusMessages.holoEvent(new HoloState.Event(
+                peer, local, HoloState.Action.PING_SLOT, 5, "item.minecraft.iron_ingot", 3000L));
+        assertNotNull(client.onServerMessageWithEvent(eventBytes, local, 3000L));
+        assertEquals(1, client.activeLocalScreenPings(3100L).size());
+
+        client.settings().set(ClientSettings.ALLOW_HOLO_PINGS, false);
+        assertNull(client.onServerMessageWithEvent(eventBytes, local, 3500L));
+    }
 }

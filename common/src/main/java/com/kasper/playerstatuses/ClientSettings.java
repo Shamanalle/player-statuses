@@ -33,6 +33,18 @@ public final class ClientSettings extends SettingsFile {
             "Show statuses and AFK time in the player list (Tab)");
     public static final Key<Boolean> ARM_POSES = bool("arm_poses", true,
             "Move the arms of players who type or have their inventory open");
+    public static final Key<Boolean> HOLO_PROJECTIONS = bool("holo_projections", true,
+            "Show interactive 3D holographic panels in front of nearby players");
+    public static final Key<Integer> HOLO_DISTANCE = integer("holo_distance", 8, 4, 24,
+            "Maximum distance in blocks at which overhead badges unfold into 3D holograms");
+    public static final Key<Boolean> ALLOW_HOLO_PINGS = bool("allow_holo_pings", true,
+            "Let nearby players ping slots in your open menus or nudge you while AFK");
+    public static final Key<Boolean> HOLO_SOUND = bool("holo_sound", true,
+            "Play a soft chime when someone pings a slot or calls you through your hologram");
+    public static final Key<Boolean> SEND_PROJECTIONS = bool("send_projections", true,
+            "Let nearby players see your live 3D holographic screen layout");
+    public static final Key<Boolean> SEND_PROJECTION_SLOTS = bool("send_projection_slots", true,
+            "Include anonymous slot silhouettes (empty/item/enchanted) in your 3D hologram");
     public static final Key<List<String>> IGNORED_SCREENS = list("ignored_screens", ScreenRules.DEFAULT_IGNORED,
             "Screens of other mods that never count as busy: class names or package prefixes, comma-separated\n"
                     + "(emote wheels and similar menus that you open while playing)");
@@ -49,7 +61,8 @@ public final class ClientSettings extends SettingsFile {
         KEYS.addAll(SEND.values());
         KEYS.addAll(SHOW.values());
         KEYS.addAll(Arrays.asList(AFK_MINUTES, ICON_SCALE, VIEW_DISTANCE, OPACITY, HIDE_WHEN_SNEAKING,
-                SHOW_OWN, TAB_LIST, ARM_POSES, IGNORED_SCREENS));
+                SHOW_OWN, TAB_LIST, ARM_POSES, HOLO_PROJECTIONS, HOLO_DISTANCE, ALLOW_HOLO_PINGS,
+                HOLO_SOUND, SEND_PROJECTIONS, SEND_PROJECTION_SLOTS, IGNORED_SCREENS));
     }
 
     public ClientSettings() {

@@ -65,4 +65,44 @@ public final class StatusText {
         out.append(new TextComponent("]").withStyle(ChatFormatting.GRAY));
         return out;
     }
+
+    public static Component holoCallLabel() {
+        return new TranslatableComponent("gui.playerstatuses.holo.call");
+    }
+
+    public static Component holoPageLabel(int page, int totalPages) {
+        return new TranslatableComponent(
+            "gui.playerstatuses.holo.page",
+            Math.max(1, page),
+            Math.max(1, totalPages)
+        );
+    }
+
+    public static Component holoPingBanner(String senderName, String hintDescId) {
+        String safeSender = senderName == null || senderName.isEmpty() ? "?" : senderName;
+        String cleanHint = com.kasper.playerstatuses.HoloState.sanitizeDescId(hintDescId);
+        if (!cleanHint.isEmpty()) {
+            return new TranslatableComponent(
+                "gui.playerstatuses.holo.ping_banner_item",
+                safeSender,
+                new TranslatableComponent(cleanHint)
+            );
+        }
+        return new TranslatableComponent("gui.playerstatuses.holo.ping_banner", safeSender);
+    }
+
+    public static Component holoPingSent(String targetName) {
+        String safeTarget = targetName == null || targetName.isEmpty() ? "?" : targetName;
+        return new TranslatableComponent("gui.playerstatuses.holo.ping_sent", safeTarget);
+    }
+
+    public static Component holoKnockReceived(String senderName) {
+        String safeSender = senderName == null || senderName.isEmpty() ? "?" : senderName;
+        return new TranslatableComponent("gui.playerstatuses.holo.knock_received", safeSender);
+    }
+
+    public static Component holoKnockSent(String targetName) {
+        String safeTarget = targetName == null || targetName.isEmpty() ? "?" : targetName;
+        return new TranslatableComponent("gui.playerstatuses.holo.knock_sent", safeTarget);
+    }
 }

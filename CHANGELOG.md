@@ -7,6 +7,26 @@ and the project uses [Semantic Versioning](https://semver.org/).
 Все заметные изменения проекта записываются в этот файл. Каждая версия описана сначала на английском,
 затем на русском.
 
+## [1.1.0] - 2026-11-14
+
+### English
+
+#### Added
+- Interactive 3D Holo-Projections in front of nearby players (within `holo_distance`, 8 blocks by default): double-sided procedural panels for open inventories, chests, barrels and shulker boxes, crafting tables, furnaces and brewing stands, enchanting tables, anvils, villager trading, books, typing in chat or entering a command, pause and settings menus, and AFK idle cards.
+- Live cursor movement, click ripples and optional anonymous item-slot silhouettes (empty, item, full stack, tool or armor, enchanted) without ever sending screen pixels, chat text, item IDs or NBT over the network.
+- 3D raycast slot pings (`1.2s` cooldown), `Shift` + right-click held-item hints, and a clickable `[ Call ]` button on AFK cards (`20s` cooldown per player), highlighting the pinged slot and sender banner directly inside the recipient's open container screen, plus an optional `Holo-Projection Ping / Call` keybind in `Controls -> Key Binds -> Multiplayer`.
+- Client settings for 3D holograms in `General` (`3D holo-projections`, `Hologram distance`, `Receive hologram pings`, `Hologram sounds`) and `Privacy` (`Share 3D hologram`, `Item silhouettes`), with full support in `Enable all`, `Disable all` and `Reset`.
+- Server-side hologram relay and reach, visibility and rate-limit validation across Fabric, Forge and NeoForge servers and the Paper / Purpur / Folia / Spigot plugin (respecting vanished players, spectators and invisibility).
+
+### Русский
+
+#### Добавлено
+- Интерактивные 3D-голопроекции перед игроками поблизости (в пределах `holo_distance`, по умолчанию 8 блоков): двусторонние процедурные панели для открытого инвентаря, сундуков, бочек и шалкеров, верстака, печей и зельеварок, стола зачарований, наковальни, торговли с жителями, чтения книг, набора сообщения или команды в чате, меню паузы и настроек, а также карточка АФК.
+- Живое движение курсора, пульсация кликов и опциональные анонимные силуэты занятых слотов (пусто, предмет, полный стак, инструмент или броня, зачарованный предмет) без передачи пикселей экрана, текста чата, ID предметов или NBT по сети.
+- Пинги конкретных слотов взглядом по голограмме (перезарядка `1.2с`), подсказка предметом в руке по `Shift + ПКМ` и кнопка `[ Позвать ]` на карточке АФК (перезарядка `20с` на игрока) с подсветкой нужного слота и плашкой отправителя прямо внутри открытого интерфейса получателя, а также назначаемая клавиша `Пинг / вызов голопроекции` в разделе `Управление -> Настройки клавиш -> Сетевая игра`.
+- Настройки 3D-голограмм на вкладках `Общие` (`3D-голопроекции`, `Дальность голограмм`, `Принимать пинги голограмм`, `Звуки голограмм`) и `Приватность` (`Отправлять 3D-голограмму`, `Силуэты предметов`) с поддержкой кнопок `Включить все`, `Выключить все` и `Сброс`.
+- Серверная ретрансляция голограмм и проверка дистанции, видимости и частоты нажатий на серверах Fabric, Forge и NeoForge, а также в плагине для Paper / Purpur / Folia / Spigot (с учётом ваниша, режима наблюдателя и невидимости).
+
 ## [1.0.0] - 2026-11-10
 
 ### English

@@ -17,6 +17,7 @@ public class PlayerStatusesFabricClient implements ClientModInitializer {
     public void onInitializeClient() {
         ClientSide.init(FabricLoader.getInstance().getConfigDir());
         ClientSide.bindSettingsKey(KeyBindingHelper.registerKeyBinding(SettingsKey.create()));
+        ClientSide.bindHoloPingKey(KeyBindingHelper.registerKeyBinding(SettingsKey.createHoloPing()));
         ClientPlayNetworking.registerGlobalReceiver(PlayerStatusesFabric.CHANNEL_ID, (client, handler, buf, responseSender) -> {
             byte[] data = new byte[buf.readableBytes()];
             buf.getBytes(buf.readerIndex(), data);

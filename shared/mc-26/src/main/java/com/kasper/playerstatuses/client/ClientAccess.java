@@ -27,8 +27,12 @@ public final class ClientAccess {
         ? null : findMethod(GUI_HUD_FIELD.getType(), "isHidden");
     private static final Method HUD_GET_CHAT_METHOD = GUI_HUD_FIELD == null
         ? null : findMethod(GUI_HUD_FIELD.getType(), "getChat");
-    private static final Method GUI_GET_CHAT_METHOD = findMethod(Gui.class, "getChat");
+    private static final java.lang.reflect.Method GUI_GET_CHAT_METHOD = findMethod(Gui.class, "getChat");
+    private static final java.lang.reflect.Method HUD_SET_OVERLAY_METHOD = GUI_HUD_FIELD == null
+        ? null : findOverlayMethod(GUI_HUD_FIELD.getType());
+    private static final java.lang.reflect.Method GUI_SET_OVERLAY_METHOD = findOverlayMethod(Gui.class);
     private static final Method MAIN_CAMERA_METHOD = findCameraMethod();
+    private static final Method CAMERA_POSITION_METHOD = findCameraPositionMethod();
 
     private ClientAccess() {
     }
@@ -89,6 +93,25 @@ public final class ClientAccess {
         return new Quaternionf();
     }
 
+    public static net.minecraft.world.phys.Vec3 cameraPosition(Minecraft mc) {
+        try {
+            if (MAIN_CAMERA_METHOD != null && CAMERA_POSITION_METHOD != null && mc != null && mc.gameRenderer != null) {
+                Object camera = MAIN_CAMERA_METHOD.invoke(mc.gameRenderer);
+                if (camera != null) {
+                    Object pos = CAMERA_POSITION_METHOD.invoke(camera);
+                    if (pos instanceof net.minecraft.world.phys.Vec3) {
+                        return (net.minecraft.world.phys.Vec3) pos;
+                    }
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+        if (mc != null && mc.player != null) {
+            return new net.minecraft.world.phys.Vec3(mc.player.getX(), mc.player.getEyeY(), mc.player.getZ());
+        }
+        return net.minecraft.world.phys.Vec3.ZERO;
+    }
+
     public static void clearChat(Minecraft mc) {
         if (mc.gui == null) {
             return;
@@ -111,6 +134,40 @@ public final class ClientAccess {
                 }
             }
         } catch (ReflectiveOperationException ignored) {
+        }
+    }
+
+    public static void showOverlayMessage(Minecraft mc, net.minecraft.network.chat.Component message) {
+        if (mc == null || mc.gui == null || message == null) {
+            return;
+        }
+        try {
+            if (HUD_SET_OVERLAY_METHOD != null) {
+                Object hud = GUI_HUD_FIELD.get(mc.gui);
+                if (hud != null) {
+                    HUD_SET_OVERLAY_METHOD.invoke(hud, message, Boolean.FALSE);
+                    return;
+                }
+            }
+            if (GUI_SET_OVERLAY_METHOD != null) {
+                GUI_SET_OVERLAY_METHOD.invoke(mc.gui, message, Boolean.FALSE);
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+    }
+
+    private static java.lang.reflect.Method findOverlayMethod(Class<?> owner) {
+        if (owner == null) {
+            return null;
+        }
+        try {
+            return owner.getMethod(
+                "setOverlayMessage",
+                net.minecraft.network.chat.Component.class,
+                boolean.class
+            );
+        } catch (ReflectiveOperationException ignored) {
+            return null;
         }
     }
 
@@ -147,5 +204,10 @@ public final class ClientAccess {
     private static Method findCameraMethod() {
         Method m = findMethod(GameRenderer.class, "mainCamera");
         return m != null ? m : findMethod(GameRenderer.class, "getMainCamera");
+    }
+
+    private static Method findCameraPositionMethod() {
+        Method m = findMethod(Camera.class, "position");
+        return m != null ? m : findMethod(Camera.class, "getPosition");
     }
 }

@@ -6,7 +6,7 @@
 
 **English** · [Русский](README.ru.md)
 
-See what other players are up to: a small badge above their heads shows when they are **typing**, have their **inventory or a chest open**, are **AFK** (with a timer) or have **tabbed out**. Works with the mod on the server, or on Paper / Purpur / Folia / Spigot with the plugin, which also shows what it can to players without the mod.
+See what other players are up to: a crisp badge above their heads shows when they are **typing**, have their **inventory or a chest open**, are **AFK** (with a timer) or have **tabbed out**, and within close range it smoothly unfolds into an **interactive 3D holo-projection** in front of them. Works with the mod on the server, or on Paper / Purpur / Folia / Spigot with the plugin, which also shows what it can to players without the mod.
 
 [![CurseForge](https://img.shields.io/badge/CurseForge-mod-F16436?logo=curseforge&logoColor=white)](https://www.curseforge.com/minecraft/mc-mods/player-statuses-typing-afk-inventory-voice-chat)
 [![CurseForge Plugin](https://img.shields.io/badge/CurseForge-Paper%20plugin-F16436?logo=curseforge&logoColor=white)](https://www.curseforge.com/minecraft/bukkit-plugins/player-statuses-typing-afk-inventory-voice-chat)
@@ -49,11 +49,19 @@ A crisp dark-slate badge above a player's head, styled after Minecraft's own int
 
 The same status appears next to the player's name in the Tab list (preserving team prefixes, colours and formatting) together with AFK time. Players who are typing or browsing a screen subtly animate their arms; this can be turned off.
 
+### Interactive 3D Holo-Projections
+
+When another player comes within `holo_distance` blocks (default `8`), their status smoothly unfolds into a crisp double-sided chest hologram alongside the overhead badge:
+
+- **Procedural live layouts:** renders anonymous vector layouts for inventories (armor, offhand, storage, hotbar), single/double chests, 3x3 crafting grids, furnaces (with smelting progress), enchanting tables, anvils, villager trading, live chat/command typing waveforms, books, signs, maps, and an AFK idle card — complete with a live interpolated cursor and click ripples.
+- **Tactile slot pings & Ghost Item Hints (`<= 4.5` blocks):** look at a slot on a nearby player's open menu hologram and press **Use** with an empty hand (or **Sneak + Use** while holding an item, or press the dedicated **Holo-Projection Ping / Call** keybind) to pulse that slot directly inside their open GUI for 4 seconds. Holding an item attaches a **Ghost Item Hint** banner without dropping or moving the item.
+- **AFK Call button:** point at the `[ Call ]` button on an AFK player's hologram to nudge them with a soft chime and actionbar alert (`20s` per-target cooldown).
+
 ## Privacy
 
-- The text you type in chat or commands is **never** sent — only the category of activity.
-- Every category has its own **Privacy** switch: hide that you are in your inventory, AFK, tabbed out, or anything else, or toggle all categories at once.
-- A separate **Visibility** tab controls which statuses of other players are shown on your screen.
+- **Zero screen streaming:** chat, command, book and sign text, as well as actual item types/IDs/NBT in your containers, are **never** transmitted passively — only procedural layout IDs, 4-bit anonymous slot silhouettes (empty / item / uncommon / enchanted / full stack) and normalized cursor coordinates.
+- Every category has its own **Privacy** switch, alongside dedicated `Share 3D hologram` (`send_projections`) and `Item silhouettes` (`send_projection_slots`) switches, or toggle everything at once.
+- A separate **Visibility** tab controls which statuses of other players are shown on your screen, while **Holo pings** (`allow_holo_pings`) controls whether nearby players can highlight slots in your menus or nudge you while AFK.
 - Invisible, vanished, spectator and hidden-nametag team rules are strictly respected; sneaking players hide their badge unless you turn that off.
 
 ## What works where
@@ -93,20 +101,26 @@ Replies are sent in each player's own Minecraft language (13 languages built in)
 
 ### In-game Settings Screen & `config/playerstatuses.properties`
 
-Open the client settings screen from **Mod Menu** (Fabric / Quilt), **Mods → Config** (Forge / NeoForge), or bind a shortcut in **Options → Controls → Key Binds → Multiplayer → Player Statuses Settings** (unbound by default so it never conflicts with other mods). It features a **Live Preview** card (overhead badge + Tab list preview with a cycle button), **General / Privacy / Visibility** tabs, **Enable all / Disable all** buttons, tooltips and **Reset** to defaults.
+Open the client settings screen from **Mod Menu** (Fabric / Quilt), **Mods → Config** (Forge / NeoForge), or bind shortcuts in **Options → Controls → Key Binds → Multiplayer** for **Player Statuses Settings** and **Holo-Projection Ping / Call** (both unbound by default so they never conflict with other mods). It features a **Live Preview** card (overhead badge + Tab list preview with a cycle button), **General / Privacy / Visibility** tabs, **Enable all / Disable all** buttons, tooltips and **Reset** to defaults.
 
 | Key | Default | What it does |
 |---|---|---|
 | `send_typing`, `send_inventory`, `send_blocks`, `send_reading`, `send_menus`, `send_other_screens`, `send_loading`, `send_afk`, `send_unfocused`, `send_voice` | `true` | allow others to see that category of your status |
+| `send_projections` | `true` | share your live cursor and procedural 3D hologram layout with nearby players |
+| `send_projection_slots` | `true` | include anonymous empty / filled / enchanted slot silhouettes in your 3D hologram |
 | `show_typing` … `show_voice` (same suffixes) | `true` | show that category of other players' statuses |
 | `afk_minutes` | `3` | minutes without input before you are marked AFK (1 – 60) |
 | `icon_scale` | `100` | overhead badge size in percent (50 – 200) |
 | `view_distance` | `32` | maximum distance in blocks at which overhead badges render (4 – 128) |
-| `opacity` | `90` | overhead badge opacity in percent (20 – 100) |
+| `opacity` | `90` | overhead badge and hologram opacity in percent (20 – 100) |
 | `hide_when_sneaking` | `true` | hide the overhead badge while a player is sneaking |
 | `show_own` | `false` | render your own overhead badge in third-person view |
 | `tab_list` | `true` | show statuses and AFK timers in the Tab player list |
 | `arm_poses` | `true` | animate player arms subtly while typing or using an open screen |
+| `holo_projections` | `true` | unfold close-range status badges into interactive 3D panels in front of players |
+| `holo_distance` | `8` | distance in blocks at which overhead badges unfold into 3D holograms (4 – 24) |
+| `allow_holo_pings` | `true` | let nearby players highlight slots in your open menus or call you while AFK |
+| `holo_sound` | `true` | play a soft UI chime when someone pings your menu or calls you |
 | `ignored_screens` | emote wheels of Emotecraft, CPM, Yes Steve Model, Figura, Controlify | screens of other mods that never count as busy (comma-separated class names or package prefixes) |
 
 ### Server: `config/playerstatuses-server.properties` (plugin: `plugins/PlayerStatuses/playerstatuses-server.properties`)
@@ -124,7 +138,7 @@ Invalid values are logged with a warning and fall back to defaults without overw
 
 ## Compatibility
 
-- **A lightweight alternative to What Are They Up To (WATUT).** Shows the same everyday multiplayer statuses using clean, compact badges instead of streaming or rendering copies of players' screens — zero screen-capture packets, zero flicker, negligible network and FPS cost, full support for **1.16.5 – 26.3**, and native **Paper / Purpur / Folia** plugin support.
+- **A lightweight, privacy-preserving alternative to What Are They Up To (WATUT).** Combines clean overhead badges with close-range interactive 3D procedural holograms instead of streaming or rendering screenshots of players' screens — zero framebuffer packets, zero flicker, negligible network and FPS cost, full support for **1.16.5 – 26.3**, and native **Paper / Purpur / Folia** plugin support.
 - Overhead badges render alongside name tags, keeping compatibility with shaders (Iris, Oculus) and name-tag or player-model mods (Nametag Tweaks, Figura, Customizable Player Models).
 - Simple Voice Chat integration is automatic and completely optional.
 

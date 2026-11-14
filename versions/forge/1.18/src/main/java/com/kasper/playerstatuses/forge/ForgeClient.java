@@ -39,6 +39,9 @@ final class ForgeClient {
                 KeyMapping key = SettingsKey.create();
                 ClientRegistry.registerKeyBinding(key);
                 ClientSide.bindSettingsKey(key);
+                KeyMapping holoPingKey = SettingsKey.createHoloPing();
+                ClientRegistry.registerKeyBinding(holoPingKey);
+                ClientSide.bindHoloPingKey(holoPingKey);
             })
         );
         ClientSide.useSender(data -> {

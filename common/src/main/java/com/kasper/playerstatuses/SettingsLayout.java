@@ -35,10 +35,14 @@ public final class SettingsLayout {
         }
     }
 
-    /** Sets all {@link Category} switches on either the Share or Visibility tab at once. */
+    /** Sets all {@link Category} (and privacy projection) switches on either the Share or Visibility tab at once. */
     public static void setAllCategories(ClientSettings settings, boolean sendTab, boolean enabled) {
         for (Category c : Category.values()) {
             settings.set(sendTab ? ClientSettings.send(c) : ClientSettings.show(c), enabled);
+        }
+        if (sendTab) {
+            settings.set(ClientSettings.SEND_PROJECTIONS, enabled);
+            settings.set(ClientSettings.SEND_PROJECTION_SLOTS, enabled);
         }
     }
 

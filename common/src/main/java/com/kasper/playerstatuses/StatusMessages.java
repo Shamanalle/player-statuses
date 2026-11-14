@@ -1,6 +1,7 @@
 package com.kasper.playerstatuses;
 
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -17,6 +18,10 @@ import java.util.UUID;
  * player types is never part of it.</li>
  * <li>{@link #STATUSES} (server to client): a VarInt count, then per player its UUID (two longs) and the
  * same three fields. A player whose status is {@link PlayerStatus#NONE} is no longer shown.</li>
+ * <li>{@link #PROJECTION_UPDATE} / {@link #PROJECTION_BROADCAST}: close-range 3D holo layout, optional
+ * 4-bit slot occupancy palette, normalized cursor, click cadence and progress.</li>
+ * <li>{@link #HOLO_INTERACT} / {@link #HOLO_EVENT}: tactile slot ping (with optional held item id) or
+ * AFK bell nudge triggered by raycasting a nearby player's hologram.</li>
  * </ul>
  */
 public final class StatusMessages {
@@ -28,14 +33,29 @@ public final class StatusMessages {
 
     public static final int UPDATE = 1;
     public static final int STATUSES = 2;
+    public static final int PROJECTION_UPDATE = 3;
+    public static final int PROJECTION_BROADCAST = 4;
+    public static final int HOLO_INTERACT = 5;
+    public static final int HOLO_EVENT = 6;
     public static final int VERSION = 1;
 
     /** More players than this in one message are sent as several messages. */
     public static final int MAX_ENTRIES = 256;
+    /** More projection entries than this in one broadcast are split across messages. */
+    public static final int MAX_PROJECTION_ENTRIES = 64;
     /** Idle time is capped (a week), so a VarInt of it stays short and nothing overflows. */
     public static final int MAX_IDLE_SECONDS = 7 * 24 * 3600;
+    private static final int MAX_STRING_BYTES = 128;
 
     private StatusMessages() {
+    }
+
+    /** Returns the message kind byte if the header matches {@link #VERSION}, or {@code -1} otherwise. */
+    public static int peekKind(byte[] data) {
+        if (data == null || data.length < 2 || (data[1] & 0xff) != VERSION) {
+            return -1;
+        }
+        return data[0] & 0xff;
     }
 
     /** One player's status in a {@link #STATUSES} message. */
@@ -151,6 +171,208 @@ public final class StatusMessages {
         return new PlayerStatus(activity, flags, Math.min(MAX_IDLE_SECONDS, idle));
     }
 
+    /** One player's projection snapshot in a {@link #PROJECTION_BROADCAST} message. */
+    public static final class ProjectionEntry {
+        private final UUID player;
+        private final HoloState.Projection projection;
+
+        public ProjectionEntry(UUID player, HoloState.Projection projection) {
+            this.player = player;
+            this.projection = projection == null ? HoloState.Projection.EMPTY : projection;
+        }
+
+        public UUID player() {
+            return player;
+        }
+
+        public HoloState.Projection projection() {
+            return projection;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof ProjectionEntry
+                    && ((ProjectionEntry) o).player.equals(player)
+                    && ((ProjectionEntry) o).projection.equals(projection);
+        }
+
+        @Override
+        public int hashCode() {
+            return player.hashCode() * 31 + projection.hashCode();
+        }
+    }
+
+    public static byte[] projectionUpdate(HoloState.Projection projection) {
+        HoloState.Projection p = projection == null ? HoloState.Projection.EMPTY : projection;
+        Writer w = new Writer();
+        w.b(PROJECTION_UPDATE).b(VERSION);
+        writeProjection(w, p);
+        return w.bytes();
+    }
+
+    public static HoloState.Projection readProjectionUpdate(byte[] data) {
+        try {
+            Reader r = new Reader(data);
+            if (r.u8() != PROJECTION_UPDATE || r.u8() != VERSION) {
+                return null;
+            }
+            return readProjection(r);
+        } catch (IndexOutOfBoundsException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    public static byte[] projectionBroadcast(List<ProjectionEntry> entries) {
+        if (entries.size() > MAX_PROJECTION_ENTRIES) {
+            throw new IllegalArgumentException("At most " + MAX_PROJECTION_ENTRIES + " projection entries per message");
+        }
+        Writer w = new Writer();
+        w.b(PROJECTION_BROADCAST).b(VERSION).varInt(entries.size());
+        for (ProjectionEntry e : entries) {
+            w.l(e.player.getMostSignificantBits()).l(e.player.getLeastSignificantBits());
+            writeProjection(w, e.projection);
+        }
+        return w.bytes();
+    }
+
+    public static List<byte[]> projectionBroadcastSplit(List<ProjectionEntry> entries) {
+        List<byte[]> out = new ArrayList<>();
+        for (int i = 0; i < entries.size(); i += MAX_PROJECTION_ENTRIES) {
+            out.add(projectionBroadcast(entries.subList(i, Math.min(entries.size(), i + MAX_PROJECTION_ENTRIES))));
+        }
+        return out;
+    }
+
+    public static List<ProjectionEntry> readProjectionBroadcast(byte[] data) {
+        try {
+            Reader r = new Reader(data);
+            if (r.u8() != PROJECTION_BROADCAST || r.u8() != VERSION) {
+                return null;
+            }
+            int n = r.varInt();
+            if (n < 0 || n > MAX_PROJECTION_ENTRIES) {
+                return null;
+            }
+            List<ProjectionEntry> out = new ArrayList<>(n);
+            for (int i = 0; i < n; i++) {
+                UUID id = new UUID(r.l(), r.l());
+                out.add(new ProjectionEntry(id, readProjection(r)));
+            }
+            return Collections.unmodifiableList(out);
+        } catch (IndexOutOfBoundsException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    public static byte[] holoInteract(HoloState.Interact interact) {
+        Writer w = new Writer();
+        w.b(HOLO_INTERACT).b(VERSION)
+                .l(interact.target().getMostSignificantBits())
+                .l(interact.target().getLeastSignificantBits())
+                .b(interact.action().id())
+                .b(encodeSlot(interact.slotIndex()))
+                .str(interact.ghostItemDescId());
+        return w.bytes();
+    }
+
+    public static HoloState.Interact readHoloInteract(byte[] data) {
+        try {
+            Reader r = new Reader(data);
+            if (r.u8() != HOLO_INTERACT || r.u8() != VERSION) {
+                return null;
+            }
+            UUID target = new UUID(r.l(), r.l());
+            HoloState.Action action = HoloState.Action.byId(r.u8());
+            int slot = decodeSlot(r.u8());
+            String ghostDesc = r.str(MAX_STRING_BYTES);
+            if (action == null || !HoloState.isValidSlotIndex(slot)) {
+                return null;
+            }
+            return new HoloState.Interact(target, action, slot, ghostDesc);
+        } catch (IndexOutOfBoundsException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    public static byte[] holoEvent(HoloState.Event event) {
+        Writer w = new Writer();
+        w.b(HOLO_EVENT).b(VERSION)
+                .l(event.sender().getMostSignificantBits())
+                .l(event.sender().getLeastSignificantBits())
+                .l(event.target().getMostSignificantBits())
+                .l(event.target().getLeastSignificantBits())
+                .b(event.action().id())
+                .b(encodeSlot(event.slotIndex()))
+                .str(event.ghostItemDescId());
+        return w.bytes();
+    }
+
+    public static HoloState.Event readHoloEvent(byte[] data, long now) {
+        try {
+            Reader r = new Reader(data);
+            if (r.u8() != HOLO_EVENT || r.u8() != VERSION) {
+                return null;
+            }
+            UUID sender = new UUID(r.l(), r.l());
+            UUID target = new UUID(r.l(), r.l());
+            HoloState.Action action = HoloState.Action.byId(r.u8());
+            int slot = decodeSlot(r.u8());
+            String ghostDesc = r.str(MAX_STRING_BYTES);
+            if (action == null || !HoloState.isValidSlotIndex(slot)) {
+                return null;
+            }
+            return new HoloState.Event(sender, target, action, slot, ghostDesc, now);
+        } catch (IndexOutOfBoundsException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static int encodeSlot(int slotIndex) {
+        return slotIndex < 0 ? 255 : Math.min(254, slotIndex);
+    }
+
+    private static int decodeSlot(int raw) {
+        return raw == 255 ? -1 : raw;
+    }
+
+    private static void writeProjection(Writer w, HoloState.Projection p) {
+        w.b(p.layout().id());
+        int count = p.slotCount();
+        w.b(count);
+        for (int i = 0; i < count; i += 2) {
+            int lo = p.slotState(i) & 0x0f;
+            int hi = (i + 1 < count ? p.slotState(i + 1) : 0) & 0x0f;
+            w.b(lo | (hi << 4));
+        }
+        w.b(Math.round(p.cursorU() * 250f));
+        w.b(Math.round(p.cursorV() * 250f));
+        w.b(p.pulseSeq());
+        w.b(p.progress());
+        w.b(p.aux());
+    }
+
+    private static HoloState.Projection readProjection(Reader r) {
+        HoloState.LayoutKind layout = HoloState.LayoutKind.byId(r.u8());
+        int count = r.u8();
+        if (count < 0 || count > HoloState.MAX_SLOTS) {
+            throw new IllegalArgumentException("bad slot count");
+        }
+        byte[] slots = new byte[count];
+        for (int i = 0; i < count; i += 2) {
+            int packed = r.u8();
+            slots[i] = (byte) HoloState.sanitizeSlotState(packed & 0x0f);
+            if (i + 1 < count) {
+                slots[i + 1] = (byte) HoloState.sanitizeSlotState((packed >>> 4) & 0x0f);
+            }
+        }
+        float cu = Math.min(250, r.u8()) / 250f;
+        float cv = Math.min(250, r.u8()) / 250f;
+        int pulse = r.u8();
+        int progress = r.u8();
+        int aux = r.u8();
+        return new HoloState.Projection(layout, slots, cu, cv, pulse, progress, aux);
+    }
+
     /** VarInt, longs in big-endian order: the way Minecraft's own buffers write them. */
     static final class Writer {
         private final ByteArrayOutputStream out = new ByteArrayOutputStream(32);
@@ -173,6 +395,13 @@ public final class StatusMessages {
                 v >>>= 7;
             }
             out.write(v);
+            return this;
+        }
+
+        Writer str(String s) {
+            byte[] utf = (s == null ? "" : s).getBytes(StandardCharsets.UTF_8);
+            varInt(utf.length);
+            out.write(utf, 0, utf.length);
             return this;
         }
 
@@ -217,6 +446,16 @@ public final class StatusMessages {
                 }
             }
             throw new IllegalArgumentException("VarInt too long");
+        }
+
+        String str(int maxBytes) {
+            int len = varInt();
+            if (len < 0 || len > maxBytes || pos + len > data.length) {
+                throw new IllegalArgumentException("bad string length");
+            }
+            String s = new String(data, pos, len, StandardCharsets.UTF_8);
+            pos += len;
+            return s;
         }
     }
 }

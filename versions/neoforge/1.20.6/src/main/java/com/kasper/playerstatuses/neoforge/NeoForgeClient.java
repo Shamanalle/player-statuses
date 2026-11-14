@@ -30,6 +30,9 @@ final class NeoForgeClient {
             KeyMapping key = SettingsKey.create();
             e.register(key);
             ClientSide.bindSettingsKey(key);
+            KeyMapping holoPingKey = SettingsKey.createHoloPing();
+            e.register(holoPingKey);
+            ClientSide.bindHoloPingKey(holoPingKey);
         });
         ClientSide.useSender(data -> {
             var conn = Minecraft.getInstance().getConnection();

@@ -92,4 +92,43 @@ class StatusMessagesTest {
             assertSame(a, Activity.byId(a.id()));
         }
     }
+
+    @Test
+    void projectionAndInteractRoundTripsAndValidation() {
+        byte[] slots = new byte[HoloState.MAX_SLOTS];
+        for (int i = 0; i < slots.length; i++) {
+            slots[i] = (byte) (i % 5);
+        }
+        HoloState.Projection p = new HoloState.Projection(
+                HoloState.LayoutKind.CONTAINER_54, slots, 0.5f, 0.2f, 42, 128, 255);
+        byte[] updateBytes = StatusMessages.projectionUpdate(p);
+        assertEquals(StatusMessages.PROJECTION_UPDATE, StatusMessages.peekKind(updateBytes));
+        assertTrue(updateBytes.length <= 36);
+        assertEquals(p, StatusMessages.readProjectionUpdate(updateBytes));
+
+        UUID alice = UUID.randomUUID();
+        UUID bob = UUID.randomUUID();
+        List<StatusMessages.ProjectionEntry> list = Arrays.asList(
+                new StatusMessages.ProjectionEntry(alice, p),
+                new StatusMessages.ProjectionEntry(bob, HoloState.Projection.EMPTY));
+        byte[] broadcastBytes = StatusMessages.projectionBroadcast(list);
+        assertEquals(StatusMessages.PROJECTION_BROADCAST, StatusMessages.peekKind(broadcastBytes));
+        assertEquals(list, StatusMessages.readProjectionBroadcast(broadcastBytes));
+
+        HoloState.Interact interact = new HoloState.Interact(
+                bob, HoloState.Action.PING_SLOT, 17, "item.minecraft.diamond");
+        byte[] interactBytes = StatusMessages.holoInteract(interact);
+        assertEquals(StatusMessages.HOLO_INTERACT, StatusMessages.peekKind(interactBytes));
+        assertEquals(interact, StatusMessages.readHoloInteract(interactBytes));
+
+        HoloState.Event event = new HoloState.Event(
+                alice, bob, HoloState.Action.PING_SLOT, 17, "item.minecraft.diamond", 5000L);
+        byte[] eventBytes = StatusMessages.holoEvent(event);
+        assertEquals(StatusMessages.HOLO_EVENT, StatusMessages.peekKind(eventBytes));
+        assertEquals(event, StatusMessages.readHoloEvent(eventBytes, 5000L));
+
+        assertNull(StatusMessages.readProjectionUpdate(new byte[]{3, 1, 1, 99})); // >54 slots
+        assertNull(StatusMessages.readHoloInteract(new byte[]{5, 1, 0})); // truncated
+        assertEquals("", HoloState.sanitizeDescId("bad\ncontrol"));
+    }
 }

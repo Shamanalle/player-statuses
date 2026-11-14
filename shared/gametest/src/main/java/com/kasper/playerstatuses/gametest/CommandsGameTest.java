@@ -59,6 +59,18 @@ public class CommandsGameTest implements FabricClientGameTest {
             storeScreenshot(context, "store-crafting", new PlayerStatus(Activity.CRAFTING, 0, 0));
             storeScreenshot(context, "store-afk", new PlayerStatus(Activity.NONE, StatusFlag.AFK.bit() | StatusFlag.UNFOCUSED.bit(), 120));
 
+            // Verify 3D analytical raycast hits close-range hologram chest panel
+            context.runOnClient(client -> {
+                TestClient.setFakeStatus(new PlayerStatus(Activity.CRAFTING, 0, 0));
+                TestClient.aimAtFakeHolo(client);
+            });
+            context.waitTicks(4);
+            java.util.UUID aimed = context.computeOnClient(client -> TestClient.aimedHoloTarget());
+            if (!TestClient.FAKE_UUID.equals(aimed)) {
+                throw new AssertionError("Expected 3D holo raycast target " + TestClient.FAKE_UUID + ", got " + aimed);
+            }
+            context.runOnClient(TestClient::restoreScreenshotCamera);
+
             // Verify Tab list decoration
             String tab = context.computeOnClient(client -> {
                 TestClient.setOwnStatus(client, new PlayerStatus(Activity.CRAFTING, StatusFlag.AFK.bit(), 120));
@@ -89,17 +101,20 @@ public class CommandsGameTest implements FabricClientGameTest {
     }
 
     private static void storeScreenshot(ClientGameTestContext context, String name, PlayerStatus status) {
-        int before = context.computeOnClient(client -> {
+        int[] before = context.computeOnClient(client -> {
             TestClient.setFakeStatus(status);
-            return TestClient.overheadDraws();
+            return new int[]{TestClient.overheadDraws(), TestClient.holoDraws()};
         });
         context.waitTicks(5);
         context.takeScreenshot(
             TestScreenshotOptions.of(name).disableCounterPrefix().withSize(3840, 2160)
         );
-        int after = context.computeOnClient(client -> TestClient.overheadDraws());
-        if (after <= before) {
+        int[] after = context.computeOnClient(client -> new int[]{TestClient.overheadDraws(), TestClient.holoDraws()});
+        if (after[0] <= before[0]) {
             throw new AssertionError("Overhead status card was not rendered for " + name + " (" + status + ")");
+        }
+        if (after[1] <= before[1]) {
+            throw new AssertionError("3D holo-projection was not rendered for " + name + " (" + status + ")");
         }
     }
 

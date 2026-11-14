@@ -2,6 +2,8 @@ package com.kasper.playerstatuses.gametest;
 
 import com.kasper.playerstatuses.Activity;
 import com.kasper.playerstatuses.ClientSettings;
+import com.kasper.playerstatuses.HoloGeometry;
+import com.kasper.playerstatuses.HoloState;
 import com.kasper.playerstatuses.PlayerStatus;
 import com.kasper.playerstatuses.StatusMessages;
 import com.kasper.playerstatuses.StatusRelay;
@@ -267,7 +269,57 @@ final class TestClient {
     }
 
     static void setFakeStatus(PlayerStatus status) {
-        ClientSide.core().setStatus(FAKE_UUID, status, System.currentTimeMillis());
+        long now = System.currentTimeMillis();
+        ClientSide.core().setStatus(FAKE_UUID, status, now);
+        ClientSide.core().setProjection(FAKE_UUID, HoloState.Projection.EMPTY, now);
+        HoloState.Projection sample = sampleProjection(status);
+        if (!sample.isNone()) {
+            ClientSide.core().setProjection(FAKE_UUID, sample, now - HoloGeometry.UNFOLD_MS - 100L);
+        }
+    }
+
+    private static HoloState.Projection sampleProjection(PlayerStatus status) {
+        if (status == null || status.isNone()) {
+            return HoloState.Projection.EMPTY;
+        }
+        if (status.has(com.kasper.playerstatuses.StatusFlag.AFK)) {
+            return new HoloState.Projection(HoloState.LayoutKind.IDLE_CARD, new byte[0], 0.5f, 0.5f, 0, 0, 0);
+        }
+        switch (status.activity()) {
+            case TYPING:
+                return new HoloState.Projection(HoloState.LayoutKind.TYPING, new byte[0], 0.68f, 0.54f, 3, 140, 0);
+            case INVENTORY: {
+                byte[] slots = new byte[46];
+                slots[5] = 3;
+                slots[6] = 3;
+                slots[7] = 2;
+                slots[8] = 2;
+                slots[45] = 1;
+                byte[] storage = {
+                    1, 4, 0, 2, 1, 0, 4, 3, 1,
+                    0, 2, 1, 0, 4, 1, 2, 0, 3,
+                    1, 0, 4, 2, 1, 3, 0, 1, 2
+                };
+                System.arraycopy(storage, 0, slots, 9, storage.length);
+                byte[] hotbar = {3, 2, 1, 4, 4, 0, 1, 2, 4};
+                System.arraycopy(hotbar, 0, slots, 36, hotbar.length);
+                return new HoloState.Projection(HoloState.LayoutKind.INVENTORY, slots, 0.44f, 0.62f, 2, 0, 0);
+            }
+            case CONTAINER: {
+                byte[] slots = {
+                    4, 4, 2, 3, 1, 0, 4, 1, 2,
+                    1, 0, 3, 4, 4, 2, 0, 1, 1,
+                    2, 1, 0, 4, 3, 2, 1, 0, 4
+                };
+                return new HoloState.Projection(HoloState.LayoutKind.CONTAINER_27, slots, 0.61f, 0.42f, 1, 0, 0);
+            }
+            case CRAFTING: {
+                byte[] slots = {3, 4, 4, 4, 0, 1, 0, 0, 1, 0};
+                return new HoloState.Projection(HoloState.LayoutKind.CRAFTING, slots, 0.76f, 0.48f, 4, 180, 0);
+            }
+            default:
+                return HoloState.Projection.EMPTY;
+        }
     }
 
     static void setOwnStatus(Minecraft client, PlayerStatus status) {
@@ -291,6 +343,46 @@ final class TestClient {
 
     static int overheadDraws() {
         return ClientSide.overheadDraws();
+    }
+
+    static int holoDraws() {
+        return ClientSide.holoDraws();
+    }
+
+    static void aimAtFakeHolo(Minecraft client) {
+        if (client == null || client.player == null) {
+            return;
+        }
+        BlockPos anchor = sceneAnchor != null ? sceneAnchor : client.player.blockPosition();
+        HoloGeometry.Basis b = HoloGeometry.basisFor(anchor.getX() + 0.5, anchor.getY(), anchor.getZ() + 0.5, -72f, false);
+        double dx = b.cx - client.player.getX();
+        double dy = b.cy - client.player.getEyeY();
+        double dz = b.cz - client.player.getZ();
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, horiz));
+        client.player.setYRot(yaw);
+        client.player.setXRot(pitch);
+        client.player.yRotO = yaw;
+        client.player.xRotO = pitch;
+        client.player.yHeadRot = yaw;
+        client.player.yHeadRotO = yaw;
+    }
+
+    static UUID aimedHoloTarget() {
+        return ClientSide.aimedTarget();
+    }
+
+    static void restoreScreenshotCamera(Minecraft client) {
+        if (client == null || client.player == null) {
+            return;
+        }
+        client.player.setYRot(90f);
+        client.player.setXRot(2.5f);
+        client.player.yRotO = 90f;
+        client.player.xRotO = 2.5f;
+        client.player.yHeadRot = 90f;
+        client.player.yHeadRotO = 90f;
     }
 
     static Activity openSettingsScreen(Minecraft client) {

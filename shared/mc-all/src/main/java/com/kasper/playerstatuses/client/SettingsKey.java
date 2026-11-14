@@ -9,11 +9,16 @@ import net.minecraft.client.KeyMapping;
 public final class SettingsKey {
 
     public static final String ID = "key.playerstatuses.settings";
+    public static final String HOLO_PING_ID = "key.playerstatuses.holo_ping";
 
     private SettingsKey() {
     }
 
     public static KeyMapping create() {
         return new KeyMapping(ID, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MULTIPLAYER);
+    }
+
+    public static KeyMapping createHoloPing() {
+        return new KeyMapping(HOLO_PING_ID, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MULTIPLAYER);
     }
 }

@@ -26,6 +26,11 @@ public final class StatusRelay {
     /** ...and in a burst. */
     static final double BURST = 16;
 
+    static final double PROJ_RATE_PER_SECOND = 12;
+    static final double PROJ_BURST = 20;
+    static final long PING_COOLDOWN_MS = 1200L;
+    static final long KNOCK_COOLDOWN_MS = 20000L;
+
     private static final class Entry {
         volatile boolean modded;
         /** The client's report (without the idle time), or what the server detected. */
@@ -36,34 +41,101 @@ public final class StatusRelay {
         PlayerStatus pending;
         double tokens = BURST;
         long refilledAt;
+
+        HoloState.Projection projection = HoloState.Projection.EMPTY;
+        HoloState.Projection pendingProjection;
+        double projTokens = PROJ_BURST;
+        long projRefilledAt;
+        final Map<UUID, Long> pingCooldowns = new ConcurrentHashMap<>();
+        final Map<UUID, Long> knockCooldowns = new ConcurrentHashMap<>();
     }
 
     private final Map<UUID, Entry> entries = new ConcurrentHashMap<>();
     private final Set<UUID> changed = new LinkedHashSet<>();
+    private final Set<UUID> changedProjections = new LinkedHashSet<>();
 
     /**
-     * A message from the player's client. The first one marks the player as having the mod.
+     * A message from the player's client ({@link StatusMessages#UPDATE} or
+     * {@link StatusMessages#PROJECTION_UPDATE}). The first valid one marks the player as having the mod.
      *
-     * @return {@code false} if the bytes are not a message this version reads
+     * @return {@code false} if the bytes are not a status/projection message this version reads
      */
     public boolean onClientMessage(UUID player, byte[] data, long now) {
-        PlayerStatus status = StatusMessages.readUpdate(data);
-        if (status == null) {
-            return false;
-        }
-        Entry e = entries.computeIfAbsent(player, id -> fresh(now));
-        synchronized (e) {
-            e.modded = true;
-            refill(e, now);
-            if (e.tokens < 1) {
-                e.pending = status;
-                return true;
+        int kind = StatusMessages.peekKind(data);
+        if (kind == StatusMessages.UPDATE) {
+            PlayerStatus status = StatusMessages.readUpdate(data);
+            if (status == null) {
+                return false;
             }
-            e.tokens -= 1;
-            e.pending = null;
-            apply(player, e, status, now);
+            Entry e = entries.computeIfAbsent(player, id -> fresh(now));
+            synchronized (e) {
+                e.modded = true;
+                e.tokens = nextTokens(e.tokens, RATE_PER_SECOND, BURST, e.refilledAt, now);
+                e.refilledAt = now;
+                if (e.tokens < 1) {
+                    e.pending = status;
+                    return true;
+                }
+                e.tokens -= 1;
+                e.pending = null;
+                apply(player, e, status, now);
+            }
+            return true;
         }
-        return true;
+        if (kind == StatusMessages.PROJECTION_UPDATE) {
+            HoloState.Projection projection = StatusMessages.readProjectionUpdate(data);
+            if (projection == null) {
+                return false;
+            }
+            Entry e = entries.computeIfAbsent(player, id -> fresh(now));
+            synchronized (e) {
+                e.modded = true;
+                e.projTokens = nextTokens(e.projTokens, PROJ_RATE_PER_SECOND, PROJ_BURST, e.projRefilledAt, now);
+                e.projRefilledAt = now;
+                if (e.projTokens < 1) {
+                    e.pendingProjection = projection;
+                    return true;
+                }
+                e.projTokens -= 1;
+                e.pendingProjection = null;
+                applyProjection(player, e, projection);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Validates a {@link StatusMessages#HOLO_INTERACT} packet from {@code sender} against per-target
+     * rate limits ({@code 1.2s} for slot pings, {@code 20s} for AFK bell nudges) and constructs the
+     * sanitized {@link HoloState.Event} to relay, or {@code null} if invalid / still on cooldown.
+     */
+    public HoloState.Event validateInteract(UUID sender, byte[] data, long now) {
+        if (sender == null) {
+            return null;
+        }
+        HoloState.Interact in = StatusMessages.readHoloInteract(data);
+        if (in == null || sender.equals(in.target())) {
+            return null;
+        }
+        Entry e = entries.computeIfAbsent(sender, id -> fresh(now));
+        long cooldown = in.action() == HoloState.Action.KNOCK_AFK ? KNOCK_COOLDOWN_MS : PING_COOLDOWN_MS;
+        Map<UUID, Long> cooldowns = in.action() == HoloState.Action.KNOCK_AFK ? e.knockCooldowns : e.pingCooldowns;
+        synchronized (e) {
+            Long last = cooldowns.get(in.target());
+            if (last != null && now >= last && now - last < cooldown) {
+                return null;
+            }
+            if (cooldowns.size() >= 64) {
+                pruneCooldowns(cooldowns, now, cooldown);
+            }
+            cooldowns.put(in.target(), now);
+        }
+        int slot = in.action() == HoloState.Action.KNOCK_AFK
+                ? HoloState.AFK_CALL_BUTTON_SLOT
+                : in.slotIndex();
+        String desc = in.action() == HoloState.Action.KNOCK_AFK ? "" : in.ghostItemDescId();
+        return new HoloState.Event(sender, in.target(), in.action(), slot, desc, now);
     }
 
     /**
@@ -120,15 +192,25 @@ public final class StatusRelay {
         for (Map.Entry<UUID, Entry> me : entries.entrySet()) {
             Entry e = me.getValue();
             synchronized (e) {
-                if (e.pending == null) {
-                    continue;
+                if (e.pending != null) {
+                    e.tokens = nextTokens(e.tokens, RATE_PER_SECOND, BURST, e.refilledAt, now);
+                    e.refilledAt = now;
+                    if (e.tokens >= 1) {
+                        e.tokens -= 1;
+                        PlayerStatus p = e.pending;
+                        e.pending = null;
+                        apply(me.getKey(), e, p, now);
+                    }
                 }
-                refill(e, now);
-                if (e.tokens >= 1) {
-                    e.tokens -= 1;
-                    PlayerStatus p = e.pending;
-                    e.pending = null;
-                    apply(me.getKey(), e, p, now);
+                if (e.pendingProjection != null) {
+                    e.projTokens = nextTokens(e.projTokens, PROJ_RATE_PER_SECOND, PROJ_BURST, e.projRefilledAt, now);
+                    e.projRefilledAt = now;
+                    if (e.projTokens >= 1) {
+                        e.projTokens -= 1;
+                        HoloState.Projection p = e.pendingProjection;
+                        e.pendingProjection = null;
+                        applyProjection(me.getKey(), e, p);
+                    }
                 }
             }
         }
@@ -139,6 +221,9 @@ public final class StatusRelay {
         entries.remove(player);
         synchronized (changed) {
             changed.remove(player);
+        }
+        synchronized (changedProjections) {
+            changedProjections.remove(player);
         }
     }
 
@@ -215,6 +300,47 @@ public final class StatusRelay {
         return out;
     }
 
+    public HoloState.Projection currentProjection(UUID player) {
+        Entry e = entries.get(player);
+        if (e == null) {
+            return HoloState.Projection.EMPTY;
+        }
+        synchronized (e) {
+            return e.projection;
+        }
+    }
+
+    public List<UUID> takeChangedProjections() {
+        synchronized (changedProjections) {
+            List<UUID> out = new ArrayList<>(changedProjections);
+            changedProjections.clear();
+            return out;
+        }
+    }
+
+    public List<StatusMessages.ProjectionEntry> takeChangedProjectionEntries() {
+        List<UUID> ids = takeChangedProjections();
+        if (ids.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<StatusMessages.ProjectionEntry> out = new ArrayList<>(ids.size());
+        for (UUID id : ids) {
+            out.add(new StatusMessages.ProjectionEntry(id, currentProjection(id)));
+        }
+        return out;
+    }
+
+    public List<StatusMessages.ProjectionEntry> activeProjections() {
+        List<StatusMessages.ProjectionEntry> out = new ArrayList<>();
+        for (UUID id : entries.keySet()) {
+            HoloState.Projection p = currentProjection(id);
+            if (!p.isNone()) {
+                out.add(new StatusMessages.ProjectionEntry(id, p));
+            }
+        }
+        return out;
+    }
+
     /** Players the relay knows. */
     public Set<UUID> players() {
         return entries.keySet();
@@ -222,6 +348,7 @@ public final class StatusRelay {
 
     private void apply(UUID player, Entry e, PlayerStatus status, long now) {
         boolean wasAfk = e.status.has(StatusFlag.AFK);
+        boolean wasActive = !e.status.isNone();
         if (e.manualAfk
                 && !status.has(StatusFlag.AFK)
                 && status.activity() != Activity.NONE
@@ -236,6 +363,17 @@ public final class StatusRelay {
             e.idleSince = now - status.idleSeconds() * 1000L;
         }
         e.status = status.withIdleSeconds(0);
+        if (wasActive && e.status.isNone() && !e.manualAfk && !e.projection.isNone()) {
+            e.projection = HoloState.Projection.EMPTY;
+            markProjectionChanged(player);
+        }
+    }
+
+    private void applyProjection(UUID player, Entry e, HoloState.Projection projection) {
+        if (!projection.equals(e.projection)) {
+            e.projection = projection;
+            markProjectionChanged(player);
+        }
     }
 
     private void markChanged(UUID player) {
@@ -244,21 +382,35 @@ public final class StatusRelay {
         }
     }
 
+    private void markProjectionChanged(UUID player) {
+        synchronized (changedProjections) {
+            changedProjections.add(player);
+        }
+    }
+
     private static Entry fresh(long now) {
         Entry e = new Entry();
         e.refilledAt = now;
+        e.projRefilledAt = now;
         e.idleSince = now;
         return e;
     }
 
-    private static void refill(Entry e, long now) {
-        if (now < e.refilledAt) {
-            e.refilledAt = now;
-            return;
+    private static double nextTokens(double tokens, double rate, double burst, long lastAt, long now) {
+        if (now < lastAt) {
+            return tokens;
         }
-        long dt = now - e.refilledAt;
-        e.tokens = Math.min(BURST, e.tokens + dt * RATE_PER_SECOND / 1000.0);
-        e.refilledAt = now;
+        long dt = now - lastAt;
+        return Math.min(burst, tokens + dt * rate / 1000.0);
+    }
+
+    private static void pruneCooldowns(Map<UUID, Long> map, long now, long cooldownMs) {
+        for (Iterator<Map.Entry<UUID, Long>> it = map.entrySet().iterator(); it.hasNext(); ) {
+            Long ts = it.next().getValue();
+            if (ts == null || now < ts || now - ts >= cooldownMs) {
+                it.remove();
+            }
+        }
     }
 
     /** Removes players for whom {@code online} is false (a safety net if a leave event was missed). */
@@ -274,6 +426,9 @@ public final class StatusRelay {
         if (!removed.isEmpty()) {
             synchronized (changed) {
                 changed.removeAll(removed);
+            }
+            synchronized (changedProjections) {
+                changedProjections.removeAll(removed);
             }
         }
     }

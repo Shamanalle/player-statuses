@@ -2,37 +2,37 @@
   {
     "file": "docs/images/gallery/store-typing.png",
     "title": "Typing in chat",
-    "description": "An animated typing badge appears above the player's head and in the Tab list while typing in chat.",
+    "description": "An animated typing badge and nearby 3D hologram panel appear as a player types in chat, without sending the typed text over the network.",
     "featured": true
   },
   {
     "file": "docs/images/gallery/store-inventory.png",
     "title": "Inventory open",
-    "description": "Shows when a player has their survival or creative inventory open, with matching 3D arm pose.",
+    "description": "Overhead badge, matching 3D arm pose, and interactive chest hologram showing live cursor position and anonymous slot silhouettes when an inventory is open.",
     "featured": false
   },
   {
     "file": "docs/images/gallery/store-crafting.png",
     "title": "Using a crafting table",
-    "description": "Shows when a player is using a crafting table or other work block.",
+    "description": "Overhead workstation badge with a 3x3 crafting 3D Holo-Projection and anonymous slot silhouettes for pinging slots in real time.",
     "featured": false
   },
   {
     "file": "docs/images/gallery/store-container.png",
     "title": "Looking inside a chest",
-    "description": "Shows when a player has a chest, barrel, shulker box or ender chest open.",
+    "description": "Container status badge and 3D chest hologram panel displaying live cursor movement and occupied slot silhouettes without sending item IDs or NBT.",
     "featured": false
   },
   {
     "file": "docs/images/gallery/store-afk.png",
     "title": "AFK with a timer",
-    "description": "Shows when a player is away from the keyboard or tabbed out, together with elapsed idle time.",
+    "description": "AFK and unfocused badges with elapsed idle time plus an interactive 3D AFK card with a clickable [ Call ] button.",
     "featured": false
   },
   {
     "file": "docs/images/gallery/store-settings.png",
     "title": "In-game settings & live preview",
-    "description": "Configure scale, opacity, AFK timeout, and per-category privacy or visibility switches with a live preview card.",
+    "description": "Configure scale, opacity, AFK timeout, 3D hologram range/pings, and per-category privacy or visibility switches with a live preview card.",
     "featured": false
   }
 ]

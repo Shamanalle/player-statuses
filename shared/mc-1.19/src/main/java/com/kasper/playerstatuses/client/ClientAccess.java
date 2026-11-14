@@ -23,6 +23,19 @@ public final class ClientAccess {
         return mc.options.hideGui;
     }
 
+    public static net.minecraft.world.phys.Vec3 cameraPosition(Minecraft mc) {
+        if (mc == null || mc.gameRenderer == null || mc.gameRenderer.getMainCamera() == null) {
+            return net.minecraft.world.phys.Vec3.ZERO;
+        }
+        return mc.gameRenderer.getMainCamera().getPosition();
+    }
+
+    public static void showOverlayMessage(Minecraft mc, net.minecraft.network.chat.Component message) {
+        if (mc != null && mc.gui != null && message != null) {
+            mc.gui.setOverlayMessage(message, false);
+        }
+    }
+
     public static void clearChat(Minecraft mc) {
         if (mc.gui != null) {
             mc.gui.getChat().clearMessages(true);

@@ -2,11 +2,13 @@ package com.kasper.playerstatuses.bukkit;
 
 import com.kasper.playerstatuses.Activity;
 import com.kasper.playerstatuses.CommandReply;
+import com.kasper.playerstatuses.HoloState;
 import com.kasper.playerstatuses.ModLog;
 import com.kasper.playerstatuses.PlayerStatus;
 import com.kasper.playerstatuses.ServerDetector;
 import com.kasper.playerstatuses.ServerSettings;
 import com.kasper.playerstatuses.StatusCommands;
+import com.kasper.playerstatuses.StatusFlag;
 import com.kasper.playerstatuses.StatusMessages;
 import com.kasper.playerstatuses.StatusRelay;
 import com.kasper.playerstatuses.StatusServer;
@@ -25,10 +27,13 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
@@ -45,9 +50,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 
 /**
@@ -69,12 +78,31 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
         }
     }
 
+    private static final class PosSnapshot {
+        final String worldName;
+        final double x;
+        final double y;
+        final double z;
+        final boolean spectator;
+
+        PosSnapshot(String worldName, double x, double y, double z, boolean spectator) {
+            this.worldName = worldName;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.spectator = spectator;
+        }
+    }
+
     private final StatusServer core = new StatusServer();
     private final ServerDetector detector = new ServerDetector();
     private final Set<UUID> leftPlayers = Collections.newSetFromMap(new ConcurrentHashMap<UUID, Boolean>());
+    private final Set<UUID> leftProjections = Collections.newSetFromMap(new ConcurrentHashMap<UUID, Boolean>());
     private final Set<UUID> vanishedPlayers = Collections.newSetFromMap(new ConcurrentHashMap<UUID, Boolean>());
     private final Map<UUID, Long> joinedAt = new ConcurrentHashMap<>();
     private final Map<UUID, TabState> tabStates = new ConcurrentHashMap<>();
+    private final Map<UUID, PosSnapshot> positions = new ConcurrentHashMap<>();
+    private final Queue<HoloState.Event> pendingEvents = new ConcurrentLinkedQueue<HoloState.Event>();
     private Scheduling scheduling;
     private OverheadBridge overheadBridge;
     private Command registeredAfkCommand;
@@ -106,6 +134,13 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
         getServer().getMessenger().registerOutgoingPluginChannel(this, StatusMessages.CHANNEL);
         getServer().getPluginManager().registerEvents(this, this);
         syncAfkCommand(core.settings().get(ServerSettings.AFK_COMMAND));
+        for (Player p : getServer().getOnlinePlayers()) {
+            scheduling.runOnEntity(p, () -> {
+                if (p.isOnline()) {
+                    recordPos(p, p.getLocation());
+                }
+            });
+        }
         scheduling.everyTick(this::tick);
     }
 
@@ -137,9 +172,12 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
         } catch (RuntimeException ignored) {
         }
         leftPlayers.clear();
+        leftProjections.clear();
         vanishedPlayers.clear();
         joinedAt.clear();
         tabStates.clear();
+        positions.clear();
+        pendingEvents.clear();
     }
 
     private void restoreAllTabNames() {
@@ -162,31 +200,53 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
         long now = System.currentTimeMillis();
         StatusRelay relay = core.relay();
         UUID id = player.getUniqueId();
+        if (StatusMessages.peekKind(message) == StatusMessages.HOLO_INTERACT) {
+            HoloState.Event ev = relay.validateInteract(id, message, now);
+            if (ev != null) {
+                pendingEvents.add(ev);
+            }
+            return;
+        }
         boolean firstTime = !relay.hasMod(id);
         if (!relay.onClientMessage(id, message, now)) {
             return;
         }
         if (firstTime) {
-            List<StatusMessages.Entry> active = relay.activeEntries(now);
-            List<StatusMessages.Entry> visible = new ArrayList<>(active.size());
-            for (StatusMessages.Entry entry : active) {
-                UUID targetId = entry.player();
-                if (targetId.equals(id)) {
-                    visible.add(entry);
-                    continue;
-                }
-                if (vanishedPlayers.contains(targetId)) {
-                    continue;
-                }
-                Player target = getServer().getPlayer(targetId);
-                if (target != null && !isVanished(target) && player.canSee(target)) {
-                    visible.add(entry);
-                }
-            }
+            List<StatusMessages.Entry> visible = filterVisibleForJoin(
+                    player, id, relay.activeEntries(now), StatusMessages.Entry::player);
             for (byte[] packet : StatusMessages.statusesSplit(visible)) {
                 player.sendPluginMessage(this, StatusMessages.CHANNEL, packet);
             }
+            List<StatusMessages.ProjectionEntry> visibleProj = filterVisibleForJoin(
+                    player, id, relay.activeProjections(), StatusMessages.ProjectionEntry::player);
+            for (byte[] packet : StatusMessages.projectionBroadcastSplit(visibleProj)) {
+                player.sendPluginMessage(this, StatusMessages.CHANNEL, packet);
+            }
         }
+    }
+
+    private <T> List<T> filterVisibleForJoin(
+            Player viewer,
+            UUID viewerId,
+            List<T> entries,
+            Function<T, UUID> targetFn
+    ) {
+        List<T> visible = new ArrayList<T>(entries.size());
+        for (T entry : entries) {
+            UUID targetId = targetFn.apply(entry);
+            if (targetId.equals(viewerId)) {
+                visible.add(entry);
+                continue;
+            }
+            if (vanishedPlayers.contains(targetId)) {
+                continue;
+            }
+            Player target = getServer().getPlayer(targetId);
+            if (target != null && !isVanished(target) && viewer.canSee(target)) {
+                visible.add(entry);
+            }
+        }
+        return visible;
     }
 
     private void tick() {
@@ -196,6 +256,7 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
 
         boolean hasVanillaViewer = false;
         List<StatusMessages.Entry> visibilityTransitions = new ArrayList<>();
+        List<StatusMessages.ProjectionEntry> projVisibilityTransitions = new ArrayList<StatusMessages.ProjectionEntry>();
         for (Player p : players) {
             UUID id = p.getUniqueId();
             detector.updatePlayer(id, core.settings(), relay, now);
@@ -203,12 +264,19 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
             if (vanished) {
                 if (vanishedPlayers.add(id)) {
                     visibilityTransitions.add(new StatusMessages.Entry(id, PlayerStatus.NONE));
+                    if (!relay.currentProjection(id).isNone()) {
+                        projVisibilityTransitions.add(new StatusMessages.ProjectionEntry(id, HoloState.Projection.EMPTY));
+                    }
                 }
             } else {
                 if (vanishedPlayers.remove(id)) {
                     PlayerStatus cur = relay.current(id, now);
                     if (!cur.isNone()) {
                         visibilityTransitions.add(new StatusMessages.Entry(id, cur));
+                    }
+                    HoloState.Projection curProj = relay.currentProjection(id);
+                    if (!curProj.isNone()) {
+                        projVisibilityTransitions.add(new StatusMessages.ProjectionEntry(id, curProj));
                     }
                 }
                 if (!relay.hasMod(id) && (now - joinedAt.getOrDefault(id, 0L)) >= JOIN_GRACE_MS) {
@@ -233,8 +301,44 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
         }
 
         if (!updates.isEmpty()) {
-            sendUpdatesToModdedViewers(players, relay, updates);
+            sendEntriesToModdedViewers(
+                    players,
+                    relay,
+                    updates,
+                    StatusMessages.Entry::player,
+                    entry -> entry.status().isNone(),
+                    StatusMessages::statusesSplit
+            );
         }
+
+        List<StatusMessages.ProjectionEntry> rawProjUpdates = relay.takeChangedProjectionEntries();
+        List<StatusMessages.ProjectionEntry> projUpdates = new ArrayList<StatusMessages.ProjectionEntry>(
+                rawProjUpdates.size() + projVisibilityTransitions.size());
+        for (StatusMessages.ProjectionEntry entry : rawProjUpdates) {
+            if (!vanishedPlayers.contains(entry.player()) || entry.projection().isNone()) {
+                projUpdates.add(entry);
+            }
+        }
+        projUpdates.addAll(projVisibilityTransitions);
+        for (Iterator<UUID> it = leftProjections.iterator(); it.hasNext(); ) {
+            UUID leftId = it.next();
+            if (relay.currentProjection(leftId).isNone()) {
+                projUpdates.add(new StatusMessages.ProjectionEntry(leftId, HoloState.Projection.EMPTY));
+            }
+            it.remove();
+        }
+        if (!projUpdates.isEmpty()) {
+            sendEntriesToModdedViewers(
+                    players,
+                    relay,
+                    projUpdates,
+                    StatusMessages.ProjectionEntry::player,
+                    entry -> entry.projection().isNone(),
+                    StatusMessages::projectionBroadcastSplit
+            );
+        }
+
+        relayPendingHoloEvents(players, relay, now);
 
         if (overheadBridge != null) {
             overheadBridge.tick(players, core, core.settings().get(ServerSettings.VANILLA_OVERHEAD), hasVanillaViewer, now);
@@ -249,13 +353,17 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
             detector.retainOnline(id -> getServer().getPlayer(id) != null);
             vanishedPlayers.removeIf(id -> getServer().getPlayer(id) == null);
             joinedAt.keySet().removeIf(id -> getServer().getPlayer(id) == null);
+            positions.keySet().removeIf(id -> getServer().getPlayer(id) == null);
         }
     }
 
-    private void sendUpdatesToModdedViewers(
+    private <T> void sendEntriesToModdedViewers(
             Collection<? extends Player> players,
             StatusRelay relay,
-            List<StatusMessages.Entry> updates
+            List<T> entries,
+            Function<T, UUID> targetFn,
+            Predicate<T> isClearFn,
+            Function<List<T>, List<byte[]>> splitFn
     ) {
         List<byte[]> sharedPackets = null;
         for (Player viewer : players) {
@@ -264,9 +372,9 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
                 continue;
             }
             boolean needsCustomFilter = false;
-            for (StatusMessages.Entry entry : updates) {
-                UUID targetId = entry.player();
-                if (!targetId.equals(viewerId) && !entry.status().isNone()) {
+            for (T entry : entries) {
+                UUID targetId = targetFn.apply(entry);
+                if (!targetId.equals(viewerId) && !isClearFn.test(entry)) {
                     Player target = getServer().getPlayer(targetId);
                     if (target == null || !viewer.canSee(target)) {
                         needsCustomFilter = true;
@@ -277,14 +385,14 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
             List<byte[]> packets;
             if (!needsCustomFilter) {
                 if (sharedPackets == null) {
-                    sharedPackets = StatusMessages.statusesSplit(updates);
+                    sharedPackets = splitFn.apply(entries);
                 }
                 packets = sharedPackets;
             } else {
-                List<StatusMessages.Entry> filtered = new ArrayList<>(updates.size());
-                for (StatusMessages.Entry entry : updates) {
-                    UUID targetId = entry.player();
-                    if (targetId.equals(viewerId) || entry.status().isNone()) {
+                List<T> filtered = new ArrayList<T>(entries.size());
+                for (T entry : entries) {
+                    UUID targetId = targetFn.apply(entry);
+                    if (targetId.equals(viewerId) || isClearFn.test(entry)) {
                         filtered.add(entry);
                     } else {
                         Player target = getServer().getPlayer(targetId);
@@ -293,12 +401,79 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
                         }
                     }
                 }
-                packets = StatusMessages.statusesSplit(filtered);
+                if (filtered.isEmpty()) {
+                    continue;
+                }
+                packets = splitFn.apply(filtered);
             }
             for (byte[] packet : packets) {
                 viewer.sendPluginMessage(this, StatusMessages.CHANNEL, packet);
             }
         }
+    }
+
+    private void relayPendingHoloEvents(Collection<? extends Player> players, StatusRelay relay, long now) {
+        for (HoloState.Event ev; (ev = pendingEvents.poll()) != null; ) {
+            Player actor = getServer().getPlayer(ev.sender());
+            Player target = getServer().getPlayer(ev.target());
+            if (actor == null || target == null || !actor.isOnline() || !target.isOnline()
+                    || vanishedPlayers.contains(ev.sender()) || vanishedPlayers.contains(ev.target())
+                    || isVanished(actor) || isVanished(target) || !actor.canSee(target)) {
+                continue;
+            }
+            PosSnapshot actorPos = positions.get(ev.sender());
+            PosSnapshot targetPos = positions.get(ev.target());
+            if (actorPos == null || targetPos == null || actorPos.spectator || targetPos.spectator
+                    || targetPos.worldName == null || !targetPos.worldName.equals(actorPos.worldName)) {
+                continue;
+            }
+            double adx = actorPos.x - targetPos.x;
+            double ady = actorPos.y - targetPos.y;
+            double adz = actorPos.z - targetPos.z;
+            if (adx * adx + ady * ady + adz * adz > 36.0) {
+                continue;
+            }
+            if (ev.action() == HoloState.Action.KNOCK_AFK
+                    && !relay.current(ev.target(), now).has(StatusFlag.AFK)
+                    && relay.currentProjection(ev.target()).layout() != HoloState.LayoutKind.IDLE_CARD) {
+                continue;
+            }
+            byte[] packet = StatusMessages.holoEvent(ev);
+            for (Player viewer : players) {
+                UUID vid = viewer.getUniqueId();
+                if (!relay.hasMod(vid)) {
+                    continue;
+                }
+                if (vid.equals(ev.target()) || vid.equals(ev.sender())) {
+                    viewer.sendPluginMessage(this, StatusMessages.CHANNEL, packet);
+                    continue;
+                }
+                PosSnapshot viewerPos = positions.get(vid);
+                if (viewerPos == null || !targetPos.worldName.equals(viewerPos.worldName)) {
+                    continue;
+                }
+                double vdx = viewerPos.x - targetPos.x;
+                double vdy = viewerPos.y - targetPos.y;
+                double vdz = viewerPos.z - targetPos.z;
+                if (vdx * vdx + vdy * vdy + vdz * vdz <= 576.0 && viewer.canSee(target) && viewer.canSee(actor)) {
+                    viewer.sendPluginMessage(this, StatusMessages.CHANNEL, packet);
+                }
+            }
+        }
+    }
+
+    private void recordPos(Player player, Location loc) {
+        if (player != null) {
+            recordPos(player, loc, player.getGameMode() == GameMode.SPECTATOR);
+        }
+    }
+
+    private void recordPos(Player player, Location loc, boolean spectator) {
+        if (player == null || loc == null) {
+            return;
+        }
+        String worldName = loc.getWorld() != null ? loc.getWorld().getName() : null;
+        positions.put(player.getUniqueId(), new PosSnapshot(worldName, loc.getX(), loc.getY(), loc.getZ(), spectator));
     }
 
     private void tickVanillaTabList(Collection<? extends Player> players, StatusRelay relay, boolean hasVanillaViewer, long now) {
@@ -344,7 +519,9 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        joinedAt.put(event.getPlayer().getUniqueId(), System.currentTimeMillis());
+        Player player = event.getPlayer();
+        joinedAt.put(player.getUniqueId(), System.currentTimeMillis());
+        recordPos(player, player.getLocation());
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -354,6 +531,7 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
             return;
         }
         Player player = event.getPlayer();
+        recordPos(player, to);
         long now = System.currentTimeMillis();
         if (player.isInsideVehicle()) {
             detector.onHeadPose(player.getUniqueId(), to.getYaw(), to.getPitch(), core.relay(), now);
@@ -365,6 +543,25 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
                     now
             );
         }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onTeleport(PlayerTeleportEvent event) {
+        Location to = event.getTo();
+        if (to != null) {
+            recordPos(event.getPlayer(), to);
+        }
+    }
+
+    @EventHandler
+    public void onRespawn(PlayerRespawnEvent event) {
+        recordPos(event.getPlayer(), event.getRespawnLocation());
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onGameModeChange(PlayerGameModeChangeEvent event) {
+        Player player = event.getPlayer();
+        recordPos(player, player.getLocation(), event.getNewGameMode() == GameMode.SPECTATOR);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -426,6 +623,7 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
         UUID id = player.getUniqueId();
         boolean wasVanished = vanishedPlayers.remove(id) || isVanished(player);
         joinedAt.remove(id);
+        positions.remove(id);
         detector.remove(id);
         tabStates.remove(id);
         if (overheadBridge != null) {
@@ -434,6 +632,9 @@ public final class PlayerStatusesBukkit extends JavaPlugin implements Listener, 
         StatusRelay relay = core.relay();
         if (!wasVanished && !relay.current(id, System.currentTimeMillis()).isNone()) {
             leftPlayers.add(id);
+        }
+        if (!wasVanished && !relay.currentProjection(id).isNone()) {
+            leftProjections.add(id);
         }
         relay.remove(id);
     }

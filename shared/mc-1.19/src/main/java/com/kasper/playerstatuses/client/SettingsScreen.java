@@ -100,6 +100,19 @@ public class SettingsScreen extends Screen {
             addToggle(m.rightX, y + m.rowStep * 3, m.colW, m.btnH, settings, ClientSettings.ARM_POSES,
                     Component.translatable("gui.playerstatuses.settings.arm_poses"),
                     "gui.playerstatuses.settings.arm_poses.tooltip");
+
+            addToggle(m.leftX, y + m.rowStep * 4, m.colW, m.btnH, settings, ClientSettings.HOLO_PROJECTIONS,
+                    Component.translatable("gui.playerstatuses.settings.holo_projections"),
+                    "gui.playerstatuses.settings.holo_projections.tooltip");
+            addSlider(m.rightX, y + m.rowStep * 4, m.colW, m.btnH, settings, ClientSettings.HOLO_DISTANCE, 4, 24,
+                    "gui.playerstatuses.settings.holo_distance", "gui.playerstatuses.settings.holo_distance.tooltip");
+
+            addToggle(m.leftX, y + m.rowStep * 5, m.colW, m.btnH, settings, ClientSettings.ALLOW_HOLO_PINGS,
+                    Component.translatable("gui.playerstatuses.settings.allow_holo_pings"),
+                    "gui.playerstatuses.settings.allow_holo_pings.tooltip");
+            addToggle(m.rightX, y + m.rowStep * 5, m.colW, m.btnH, settings, ClientSettings.HOLO_SOUND,
+                    Component.translatable("gui.playerstatuses.settings.holo_sound"),
+                    "gui.playerstatuses.settings.holo_sound.tooltip");
         } else {
             boolean sendTab = currentTab == SettingsLayout.TAB_SEND;
             addRenderableWidget(new Button(m.leftX, m.bulkY, m.colW, m.subBtnH,
@@ -120,6 +133,15 @@ public class SettingsScreen extends Screen {
                 int y = m.gridStartY + (i / 2) * m.rowStep;
                 SettingsFile.Key<Boolean> key = sendTab ? ClientSettings.send(c) : ClientSettings.show(c);
                 addToggle(x, y, m.colW, m.btnH, settings, key, Component.translatable(c.translationKey()), null);
+            }
+            if (sendTab) {
+                int extraY = m.gridStartY + ((categories.length + 1) / 2) * m.rowStep;
+                addToggle(m.leftX, extraY, m.colW, m.btnH, settings, ClientSettings.SEND_PROJECTIONS,
+                        Component.translatable("gui.playerstatuses.settings.send_projections"),
+                        "gui.playerstatuses.settings.send_projections.tooltip");
+                addToggle(m.rightX, extraY, m.colW, m.btnH, settings, ClientSettings.SEND_PROJECTION_SLOTS,
+                        Component.translatable("gui.playerstatuses.settings.send_projection_slots"),
+                        "gui.playerstatuses.settings.send_projection_slots.tooltip");
             }
         }
 

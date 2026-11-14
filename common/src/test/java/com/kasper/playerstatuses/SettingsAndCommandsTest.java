@@ -176,24 +176,28 @@ class SettingsAndCommandsTest {
             assertFalse(s.sends(c));
             assertTrue(s.shows(c));
         }
+        assertFalse(s.get(ClientSettings.SEND_PROJECTIONS));
+        assertFalse(s.get(ClientSettings.SEND_PROJECTION_SLOTS));
         SettingsLayout.setAllCategories(s, false, false);
         for (Category c : Category.values()) {
             assertFalse(s.shows(c));
         }
         SettingsLayout.setAllCategories(s, true, true);
         SettingsLayout.setAllCategories(s, false, true);
+        assertTrue(s.get(ClientSettings.SEND_PROJECTIONS));
+        assertTrue(s.get(ClientSettings.SEND_PROJECTION_SLOTS));
 
         int[][] resolutions = {{276, 240}, {427, 240}, {480, 270}, {640, 360}, {960, 540}};
         for (int[] res : resolutions) {
             SettingsLayout.Metrics m = new SettingsLayout.Metrics(res[0], res[1]);
             assertTrue(m.previewY > m.titleY + 7, "Title overlaps preview at " + res[0] + "x" + res[1]);
             assertTrue(m.tabsY >= m.previewY + m.previewH + 2, "Preview overlaps tabs at " + res[0] + "x" + res[1]);
-            int generalBottom = m.generalStartY + 3 * m.rowStep + m.btnH;
+            int generalBottom = m.generalStartY + 5 * m.rowStep + m.btnH;
             assertTrue(generalBottom + 2 <= m.footerY, "General rows overlap footer at " + res[0] + "x" + res[1]);
             int categoryRows = (Category.values().length + 1) / 2;
-            int gridBottom = m.gridStartY + (categoryRows - 1) * m.rowStep + m.btnH;
+            int gridBottom = m.gridStartY + categoryRows * m.rowStep + m.btnH;
             assertTrue(m.gridStartY >= m.bulkY + m.subBtnH + 2, "Bulk buttons overlap grid at " + res[0] + "x" + res[1]);
-            assertTrue(gridBottom + 2 <= m.footerY, "Category grid overlaps footer at " + res[0] + "x" + res[1]);
+            assertTrue(gridBottom + 2 <= m.footerY, "Category grid + privacy row overlap footer at " + res[0] + "x" + res[1]);
 
             java.util.List<int[]> rects = new java.util.ArrayList<>();
             int[] origin = new int[6];
