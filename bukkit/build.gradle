@@ -54,10 +54,13 @@ processResources {
 // The plugin jar: the plugin, its Folia part and the common code with the language files (the replies come
 // from them; the icon is for the client only)
 tasks.named('jar') {
+    includeEmptyDirs = false
     from(sourceSets.folia.output)
     from(project(':common-j8').sourceSets.main.output) {
         exclude 'assets/playerstatuses/icon.png'
+        exclude 'com/github/bsideup/jabel/**'
     }
+    exclude 'com/github/bsideup/jabel/**'
 }
 
 // Guards the jar against losing the texts: without them every reply would be a bare key
@@ -73,6 +76,14 @@ tasks.register('checkPluginJar') {
             if (!names.contains(required)) {
                 throw new GradleException("The plugin jar lacks " + required)
             }
+        }
+        names.findAll { it.endsWith('.class') }.each { String cls ->
+            if (!cls.startsWith('com/kasper/playerstatuses/')) {
+                throw new GradleException("Unexpected foreign class in plugin jar: " + cls)
+            }
+        }
+        names.findAll { it.startsWith('com/github/') }.each { String bad ->
+            throw new GradleException("Unexpected Jabel entry in plugin jar: " + bad)
         }
     }
 }

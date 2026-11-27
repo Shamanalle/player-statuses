@@ -7,6 +7,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 Все заметные изменения проекта записываются в этот файл. Каждая версия описана сначала на английском,
 затем на русском.
 
+## [1.1.1] - 2026-11-27
+
+### English
+
+#### Fixed
+- Removed a compile-only annotation class (`com.github.bsideup.jabel.Desugar`) from the release jars that caused a duplicate-package crash at startup on Forge and NeoForge when installed together with *Voice Physics*, *Mob Senses* or other mods bundling the same package.
+
+### Русский
+
+#### Исправлено
+- Из релизных jar-файлов убран служебный класс аннотации времени компиляции (`com.github.bsideup.jabel.Desugar`), из-за дублирования пакета которого игра падала при запуске на Forge и NeoForge вместе с *Voice Physics*, *Mob Senses* и другими модами с тем же пакетом.
+
 ## [1.1.0] - 2026-11-14
 
 ### English

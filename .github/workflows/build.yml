@@ -30,13 +30,13 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Unit tests (statuses, network messages, relay, settings, commands, translations, band dispatch)
+      - name: Unit tests (statuses, network messages, relay, settings, commands, translations, band dispatch, jar merging)
         run: |
           chmod +x gradlew
-          bash .github/scripts/net-retry.sh -- ./gradlew :common:test :universal:test --no-daemon
+          bash .github/scripts/net-retry.sh -- ./gradlew :common:test :universal:test :packaging:test --no-daemon
 
       - name: Build every Minecraft target
-        run: bash .github/scripts/net-retry.sh -- ./gradlew build --no-daemon
+        run: bash .github/scripts/net-retry.sh -- ./gradlew build -x test --no-daemon
 
       - name: Upload jars
         uses: actions/upload-artifact@v4
@@ -50,7 +50,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-report
-          path: common/build/reports/tests/
+          path: |
+            common/build/reports/tests/
+            universal/build/reports/tests/
+            packaging/build/reports/tests/
 
   # Each Forge / NeoForge band serves several Minecraft versions: it is built against the newest loader
   # of the band, and here also compiled against the oldest, so a call missing there fails the build

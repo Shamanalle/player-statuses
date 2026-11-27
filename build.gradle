@@ -430,7 +430,31 @@ tasks.register('buildAll') {
             from plugin
             into outDir
         }
+        [fabricUniversalName, forgeUniversalName, plugin.name].each { String jarName ->
+            def f = new File(outDir, jarName)
+            new java.util.zip.ZipFile(f).withCloseable { zip ->
+                zip.entries().each { entry ->
+                    if (entry.name.endsWith('.class') && !entry.name.startsWith('com/kasper/playerstatuses/')) {
+                        throw new GradleException("${jarName}: unexpected foreign class ${entry.name}")
+                    }
+                    if (entry.name.startsWith('com/github/')) {
+                        throw new GradleException("${jarName}: unexpected Jabel entry ${entry.name}")
+                    }
+                }
+            }
+        }
+        def forgePackages = java.lang.module.ModuleFinder.of(new File(outDir, forgeUniversalName).toPath())
+                .findAll().iterator().next().descriptor().packages()
+        forgePackages.each { String pkg ->
+            if (!pkg.startsWith('com.kasper.playerstatuses')) {
+                throw new GradleException("${forgeUniversalName}: exports foreign JPMS package ${pkg}")
+            }
+        }
     }
+}
+
+tasks.named('check') {
+    dependsOn ':common:test', ':universal:test', ':packaging:test'
 }
 
 tasks.named('build') {

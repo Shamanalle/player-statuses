@@ -65,6 +65,8 @@ import java.util.zip.ZipOutputStream;
 public final class MergeJars {
 
     private static final String ROOT = "com/kasper/playerstatuses/";
+    /** Compile-time-only Jabel @Desugar annotation stub; must never enter a mod jar (JPMS split-package hazard). */
+    private static final String JABEL_STUB_PREFIX = "com/github/bsideup/jabel/";
 
     /** Band files that the base replaces: each band has its own, the merged jar one. */
     private static final Set<String> METADATA = Set.of(
@@ -141,7 +143,12 @@ public final class MergeJars {
             throw new IllegalArgumentException("Need --out, --common and at least one --band");
         }
         MergeJars merge = new MergeJars();
-        merge.run(outPath, commonPaths, basePaths, bands, bandJava, maxMajor, baseMaxMajor, modTable);
+        try {
+            merge.run(outPath, commonPaths, basePaths, bands, bandJava, maxMajor, baseMaxMajor, modTable);
+        } catch (IllegalStateException e) {
+            System.err.println(e.getMessage());
+            System.exit(1);
+        }
     }
 
     private static String[] pair(String value) {
@@ -152,10 +159,13 @@ public final class MergeJars {
         return new String[]{value.substring(0, eq), value.substring(eq + 1)};
     }
 
-    private void run(Path outPath, List<Path> commonPaths, List<Path> basePaths, Map<String, Path> bands,
+    void run(Path outPath, List<Path> commonPaths, List<Path> basePaths, Map<String, Path> bands,
                      Map<String, Integer> bandJava, int maxMajor, int baseMaxMajor, String modTable) throws IOException {
         for (Path p : commonPaths) {
             read(p).forEach((name, bytes) -> {
+                if (name.startsWith(JABEL_STUB_PREFIX)) {
+                    return;
+                }
                 add(name, bytes, "common");
                 if (name.endsWith(".class")) {
                     common.add(className(name));
@@ -164,6 +174,9 @@ public final class MergeJars {
         }
         for (Path p : basePaths) {
             read(p).forEach((name, bytes) -> {
+                if (name.startsWith(JABEL_STUB_PREFIX)) {
+                    return;
+                }
                 if (name.endsWith(".class") && common.contains(className(name))) {
                     errors.add("Base class " + name + " is also a common class");
                 }
@@ -178,6 +191,10 @@ public final class MergeJars {
         }
         for (String name : out.keySet()) {
             if (name.endsWith(".class")) {
+                if (!name.startsWith(ROOT)) {
+                    errors.add("common/base: class " + name + " is outside " + ROOT
+                            + " (would export a foreign package in JPMS on Forge/NeoForge)");
+                }
                 checkMajor(name, out.get(name), Math.min(maxMajor, baseMaxMajor), "common/base");
             }
         }
@@ -195,9 +212,9 @@ public final class MergeJars {
         }
 
         if (!errors.isEmpty()) {
-            System.err.println("MergeJars: " + errors.size() + " problem(s) in " + outPath.getFileName());
-            new TreeSet<>(errors).forEach(e -> System.err.println("  " + e));
-            System.exit(1);
+            StringBuilder message = new StringBuilder("MergeJars: " + errors.size() + " problem(s) in " + outPath.getFileName());
+            new TreeSet<>(errors).forEach(e -> message.append("\n  ").append(e));
+            throw new IllegalStateException(message.toString());
         }
         write(outPath);
         System.out.print(summary);
@@ -210,6 +227,9 @@ public final class MergeJars {
         Map<String, byte[]> glue = new TreeMap<>();
         for (Map.Entry<String, byte[]> e : files.entrySet()) {
             String name = e.getKey();
+            if (name.startsWith(JABEL_STUB_PREFIX)) {
+                continue;
+            }
             if (name.startsWith("META-INF/versions/") || name.endsWith("module-info.class")
                     || name.startsWith("META-INF/jars/")) {
                 errors.add(id + ": " + name + " is not supported in a merged jar");
